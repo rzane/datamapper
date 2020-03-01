@@ -1,7 +1,7 @@
 import os
 import pytest
 from databases import Database
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy_utils import create_database, database_exists
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/datamapper")
