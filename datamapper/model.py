@@ -1,8 +1,11 @@
+import typing
+
+
 class Model:
-    def __init__(self, **attributes):
+    def __init__(self, **attributes: typing.Any):
         self._attributes = attributes
 
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> typing.Any:
         if key in self._attributes:
             return self._attributes[key]
         else:

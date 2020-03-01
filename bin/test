@@ -9,5 +9,8 @@ say() {
 say "==>> Formatting..."
 poetry run black .
 
-say "\n==>> Running PyTest..."
+say "\n==>> Typechecking..."
+poetry run mypy datamapper --disallow-untyped-defs
+
+say "\n==>> Testing..."
 poetry run pytest "$@"
