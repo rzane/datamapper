@@ -41,14 +41,9 @@ def test_multi_where():
     assert "WHERE users.id = 1 AND users.name = 'Ray'" in to_sql(query.build())
 
 
-def test_and_where():
+def test_consecutive_where():
     query = Query(User).where(id=1).where(name="Ray")
     assert "WHERE users.id = 1 AND users.name = 'Ray'" in to_sql(query.build())
-
-
-def test_or_where():
-    query = Query(User).where(id=1).or_where(id=2)
-    assert "WHERE users.id = 1 OR users.id = 2" in to_sql(query.build())
 
 
 def test_where_literal():

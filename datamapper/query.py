@@ -46,25 +46,25 @@ class Query:
         return query
 
     def where(self, *args: List[ClauseElement], **kwargs: dict) -> "Query":
-        query = self._clone()
-        exprs = self._build_where(*args, **kwargs)
+        exprs = []
 
+        for arg in args:
+            if isinstance(arg, ClauseElement):
+                exprs.append(arg)
+
+        for name, value in kwargs.items():
+            column = self._get_column(name)
+
+            if isinstance(value, list):
+                exprs.append(column.in_(value))
+            else:
+                exprs.append(column == value)
+
+        query = self._clone()
         if query._where is None:
             query._where = and_(*exprs)
         else:
             query._where = and_(query._where, *exprs)
-
-        return query
-
-    def or_where(self, *args: List[ClauseElement], **kwargs: dict) -> "Query":
-        query = self._clone()
-        exprs = self._build_where(*args, **kwargs)
-
-        if query._where is None:
-            query._where = and_(*exprs)
-        else:
-            query._where = or_(query._where, and_(*exprs))
-
         return query
 
     def order_by(self, *args: List[Union[str, ClauseElement]]) -> "Query":
@@ -83,25 +83,6 @@ class Query:
         query = self._clone()
         query._order_by = query._order_by + exprs
         return query
-
-    def _build_where(
-        self, *args: List[ClauseElement], **kwargs: dict
-    ) -> List[ClauseElement]:
-        exprs = []
-
-        for arg in args:
-            if isinstance(arg, ClauseElement):
-                exprs.append(arg)
-
-        for name, value in kwargs.items():
-            column = self._get_column(name)
-
-            if isinstance(value, list):
-                exprs.append(column.in_(value))
-            else:
-                exprs.append(column == value)
-
-        return exprs
 
     def _get_column(self, name: str) -> Column:
         return getattr(self.model.__table__.columns, name)
