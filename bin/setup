@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -euo pipefail
+
+say() {
+  printf "\e[33m$1\e[0m\n"
+}
+
+say "==>> Installing dependencies..."
+poetry install
+
+say "\n==>> Generating VSCode configuration..."
+mkdir -p .vscode
+cat <<EOF > .vscode/settings.json
+{
+  "python.pythonPath": "$(poetry env info -p)/bin/python",
+  "python.formatting.provider": "black",
+  "prettier.disableLanguages": ["html"]
+}
+EOF
