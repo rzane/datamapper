@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import Column, BigInteger, Table
+from sqlalchemy import Column, Table, BigInteger, String
 from datamapper import Model
 from tests.conftest import metadata
 
@@ -9,15 +9,21 @@ class User(Model):
     __metadata__ = metadata
 
     id = Column(BigInteger, primary_key=True)
+    name = Column(String)
 
 
-def test_read_attribute():
+def test_getttr():
     assert User(name="Ray").name == "Ray"
 
 
-def test_read_invalid_attribute():
+def test_getattr_invalid():
+    user = User(invalid_attribute="Foo")
+
     with pytest.raises(AttributeError):
-        User().invalid_attribute
+        user.invalid_attribute
+
+    with pytest.raises(AttributeError):
+        user.missing_attribute
 
 
 def test_tablename():
