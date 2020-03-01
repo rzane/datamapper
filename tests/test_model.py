@@ -1,15 +1,6 @@
 import pytest
-from sqlalchemy import Column, Table, BigInteger, String
-from datamapper import Model
-from tests.conftest import metadata
-
-
-class User(Model):
-    __tablename__ = "users"
-    __metadata__ = metadata
-
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String)
+from sqlalchemy import Column, Table
+from tests.models import metadata, User
 
 
 def test_getttr():
