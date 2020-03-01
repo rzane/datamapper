@@ -1,12 +1,12 @@
-from typing import Any, List, Union
+from typing import List, Union
 from datamapper.model import Model
 from sqlalchemy import and_, or_, Column
-from sqlalchemy.sql.expression import Select, TextClause
+from sqlalchemy.sql.expression import Select, ClauseElement, ClauseList
 
 
 class Query:
     model: Model
-    _where: Any
+    _where: Union[ClauseList, None]
     _limit: Union[int, None]
     _offset: Union[int, None]
     _order_by: List[str]
@@ -18,7 +18,7 @@ class Query:
         self._where = None
         self._order_by = []
 
-    def build(self):
+    def build(self) -> Select:
         statement = self.model.__table__.select()
 
         if self._limit is not None:
@@ -35,39 +35,43 @@ class Query:
 
         return statement
 
-    def limit(self, value):
+    def limit(self, value: int) -> "Query":
         query = self._clone()
         query._limit = value
         return query
 
-    def offset(self, value):
+    def offset(self, value: int) -> "Query":
         query = self._clone()
         query._offset = value
         return query
 
-    def where(self, *args, **kwargs):
+    def where(self, *args: List[ClauseElement], **kwargs: dict) -> "Query":
         query = self._clone()
         exprs = self._build_where(*args, **kwargs)
+
         if query._where is None:
             query._where = and_(*exprs)
         else:
             query._where = and_(query._where, *exprs)
+
         return query
 
-    def or_where(self, *args, **kwargs):
+    def or_where(self, *args: List[ClauseElement], **kwargs: dict) -> "Query":
         query = self._clone()
         exprs = self._build_where(*args, **kwargs)
+
         if query._where is None:
             query._where = and_(*exprs)
         else:
             query._where = or_(query._where, and_(*exprs))
+
         return query
 
-    def order_by(self, *args):
+    def order_by(self, *args: List[Union[str, ClauseElement]]) -> "Query":
         exprs = []
 
         for arg in args:
-            if isinstance(arg, TextClause):
+            if isinstance(arg, ClauseElement):
                 exprs.append(arg)
             elif isinstance(arg, str) and arg.startswith("-"):
                 column = self._get_column(arg[1:])
@@ -80,15 +84,18 @@ class Query:
         query._order_by = query._order_by + exprs
         return query
 
-    def _build_where(self, *args, **kwargs):
+    def _build_where(
+        self, *args: List[ClauseElement], **kwargs: dict
+    ) -> List[ClauseElement]:
         exprs = []
 
         for arg in args:
-            if isinstance(arg, TextClause):
+            if isinstance(arg, ClauseElement):
                 exprs.append(arg)
 
         for name, value in kwargs.items():
             column = self._get_column(name)
+
             if isinstance(value, list):
                 exprs.append(column.in_(value))
             else:
@@ -96,10 +103,10 @@ class Query:
 
         return exprs
 
-    def _get_column(self, name) -> Column:
+    def _get_column(self, name: str) -> Column:
         return getattr(self.model.__table__.columns, name)
 
-    def _clone(self):
+    def _clone(self) -> "Query":
         query = Query(self.model)
         query._where = self._where
         query._limit = self._limit

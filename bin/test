@@ -10,7 +10,7 @@ say "==>> Formatting..."
 poetry run black .
 
 say "\n==>> Typechecking..."
-poetry run mypy datamapper --disallow-untyped-defs
+poetry run mypy datamapper --ignore-missing-imports --disallow-untyped-defs
 
 say "\n==>> Testing..."
 poetry run pytest "$@"
