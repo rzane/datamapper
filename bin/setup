@@ -14,7 +14,6 @@ mkdir -p .vscode
 cat <<EOF > .vscode/settings.json
 {
   "python.pythonPath": "$(poetry env info -p)/bin/python",
-  "python.formatting.provider": "black",
-  "prettier.disableLanguages": ["html"]
+  "python.formatting.provider": "black"
 }
 EOF
