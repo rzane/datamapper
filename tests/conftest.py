@@ -6,6 +6,7 @@ from sqlalchemy_utils import create_database, database_exists
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/datamapper")
 
+
 metadata = MetaData()
 database = Database(DATABASE_URL, force_rollback=True)
 

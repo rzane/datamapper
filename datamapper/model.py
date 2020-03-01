@@ -1,7 +1,33 @@
 import typing
+import sqlalchemy
+from sqlalchemy import Table, Column
 
 
-class Model:
+class ModelMeta(type):
+    def __new__(cls, name, bases, attrs):
+        model = super().__new__(cls, name, bases, attrs)
+
+        if attrs.get("__abstract__"):
+            return model
+
+        assert "__tablename__" in attrs, "__tablename__ is required"
+        assert "__metadata__" in attrs, "__metadata__ is required"
+
+        columns = []
+        for name, attr in attrs.items():
+            if isinstance(attr, Column):
+                if attr.name is None:
+                    attr.name = name
+                columns.append(attr)
+
+        model.__table__ = Table(model.__tablename__, model.__metadata__, *columns)
+
+        return model
+
+
+class Model(metaclass=ModelMeta):
+    __abstract__ = True
+
     def __init__(self, **attributes: typing.Any):
         self._attributes = attributes
 
