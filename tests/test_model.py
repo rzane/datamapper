@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy import Column, Table
-from tests.models import metadata, User
+from tests.support import metadata, User
 
 
 def test_getttr():

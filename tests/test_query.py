@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
 from datamapper import Query
-from tests.models import User, to_sql
+from tests.support import User, to_sql
 
 
 def test_query():

@@ -1,4 +1,6 @@
 import os
+import functools
+import asyncio
 from datamapper import Model
 from databases import Database
 from sqlalchemy import MetaData, Column, BigInteger, String
@@ -23,6 +25,7 @@ class User(Model):
 
 def to_sql(statement):
     """Convert a SQLAlchemy statement to raw SQL"""
+
     return str(
         statement.compile(
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
