@@ -19,21 +19,13 @@ class Query:
         self._order_by = []
 
     def to_query(self) -> ClauseElement:
-        statement = self.model.__table__.select()
+        return self._build_query(self.model.__table__.select())
 
-        if self._limit is not None:
-            statement = statement.limit(self._limit)
+    def to_update_query(self, **values) -> ClauseElement:
+        return self._build_query(self.model.__table__.update()).values(**values)
 
-        if self._offset is not None:
-            statement = statement.offset(self._offset)
-
-        if self._where is not None:
-            statement = statement.where(self._where)
-
-        if self._order_by:
-            statement = statement.order_by(*self._order_by)
-
-        return statement
+    def to_delete_query(self) -> ClauseElement:
+        return self._build_query(self.model.__table__.delete())
 
     def limit(self, value: int) -> "Query":
         query = self._clone()
@@ -87,10 +79,37 @@ class Query:
     def _get_column(self, name: str) -> Column:
         return self.model.__attributes__[name]
 
+    def _build_query(self, sql: ClauseElement) -> ClauseElement:
+        if self._limit is not None:
+            sql = sql.limit(self._limit)
+
+        if self._offset is not None:
+            sql = sql.offset(self._offset)
+
+        if self._where is not None:
+            sql = sql.where(self._where)
+
+        if self._order_by:
+            sql = sql.order_by(*self._order_by)
+
+        return sql
+
     def _clone(self) -> "Query":
-        query = Query(self.model)
+        query = self.__class__(self.model)
         query._where = self._where
         query._limit = self._limit
         query._offset = self._offset
         query._order_by = self._order_by
         return query
+
+
+Queryable = Union[Model, Query]
+
+
+def to_query(queryable: Queryable) -> Query:
+    if isinstance(queryable, type) and issubclass(queryable, Model):
+        return Query(queryable)
+    elif isinstance(queryable, Query):
+        return queryable
+    else:
+        raise AssertionError(f"{queryable} is not a queryable object.")
