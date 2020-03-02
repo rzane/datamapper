@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from typing import Any, Sequence, Mapping
 from sqlalchemy import Table, Column, MetaData
-from sqlalchemy.sql.expression import Select
+from sqlalchemy.sql.expression import ClauseElement
 
 
 class ModelMeta(ABCMeta):
@@ -50,7 +50,7 @@ class Model(metaclass=ModelMeta):
             )
 
     @classmethod
-    def to_query(cls) -> Select:
+    def to_query(cls) -> ClauseElement:
         return cls.__table__.select()
 
     @classmethod

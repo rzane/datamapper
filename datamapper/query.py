@@ -1,22 +1,7 @@
 from typing import Any, List, Mapping, Union, Optional
 from datamapper.model import Model
-from sqlalchemy import and_, or_, text, Column
-from sqlalchemy.sql.expression import Select, ClauseElement, ClauseList, TextClause
-
-
-class SQL:
-    def __init__(self, sql: str, model: Optional[Model] = None):
-        self._sql = sql
-        self._model = model
-
-    def to_query(self) -> TextClause:
-        return text(self._sql)
-
-    def deserialize_row(self, row: Mapping) -> Union[Mapping, Model]:
-        if self._model:
-            return self._model.deserialize_row(row)
-        else:
-            return row
+from sqlalchemy import and_, or_, Column
+from sqlalchemy.sql.expression import ClauseElement, ClauseList
 
 
 class Query:
@@ -33,7 +18,7 @@ class Query:
         self._where = None
         self._order_by = []
 
-    def to_query(self):
+    def to_query(self) -> ClauseElement:
         statement = self._model.__table__.select()
 
         if self._limit is not None:
