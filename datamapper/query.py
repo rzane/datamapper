@@ -18,13 +18,13 @@ class Query:
         self._where = None
         self._order_by = []
 
-    def to_query(self) -> ClauseElement:
+    def to_sql(self) -> ClauseElement:
         return self._build_query(self.model.__table__.select())
 
-    def to_update_query(self, **values) -> ClauseElement:
+    def to_update_sql(self, **values: Any) -> ClauseElement:
         return self._build_query(self.model.__table__.update()).values(**values)
 
-    def to_delete_query(self) -> ClauseElement:
+    def to_delete_sql(self) -> ClauseElement:
         return self._build_query(self.model.__table__.delete())
 
     def limit(self, value: int) -> "Query":
@@ -37,7 +37,7 @@ class Query:
         query._offset = value
         return query
 
-    def where(self, *args: List[ClauseElement], **kwargs: dict) -> "Query":
+    def where(self, *args: List[ClauseElement], **kwargs: Any) -> "Query":
         exprs = []
 
         for arg in args:
@@ -107,9 +107,10 @@ Queryable = Union[Model, Query]
 
 
 def to_query(queryable: Queryable) -> Query:
+    if isinstance(queryable, Query):
+        return queryable
+
     if isinstance(queryable, type) and issubclass(queryable, Model):
         return Query(queryable)
-    elif isinstance(queryable, Query):
-        return queryable
-    else:
-        raise AssertionError(f"{queryable} is not a queryable object.")
+
+    raise AssertionError(f"{queryable} is not a queryable object.")

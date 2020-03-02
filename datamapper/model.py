@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from typing import Any, Sequence, Mapping, Type
+from typing import Any, Sequence, Mapping
 from sqlalchemy import Table, Column, MetaData
 from sqlalchemy.sql.expression import ClauseElement
 
@@ -38,7 +38,7 @@ class Model(metaclass=ModelMeta):
     __metadata__: MetaData
     __attributes__: Mapping[str, Column]
 
-    def __init__(self, **attributes: dict):
+    def __init__(self, **attributes: Any):
         self._attributes = attributes
 
     def __getattr__(self, key: str) -> Any:
