@@ -1,7 +1,22 @@
 from typing import Any, List, Mapping, Union, Optional
 from datamapper.model import Model
-from sqlalchemy import and_, or_, Column
+from sqlalchemy import and_, or_, text, Column
 from sqlalchemy.sql.expression import Select, ClauseElement, ClauseList
+
+
+class SQL:
+    def __init__(self, sql: str, model: Optional[Model] = None):
+        self._sql = sql
+        self._model = model
+
+    def to_query(self):
+        return text(self._sql)
+
+    def deserialize_row(self, row: Mapping) -> Union[Mapping, Model]:
+        if self._model:
+            return self._model.deserialize_row(row)
+        else:
+            return row
 
 
 class Query:
@@ -35,10 +50,8 @@ class Query:
 
         return statement
 
-    def deserialize(self, row):
-        for column in cls.__table__.columns:
-            if column.name not in item:
-                item[column.name] = row[column]
+    def deserialize_row(self, row: Mapping) -> Model:
+        return self._model.deserialize_row(row)
 
     def limit(self, value: int) -> "Query":
         query = self._clone()

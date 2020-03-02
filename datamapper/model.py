@@ -1,6 +1,7 @@
 from abc import ABCMeta
 from typing import Any, Sequence, Mapping
 from sqlalchemy import Table, Column, MetaData
+from sqlalchemy.sql.expression import Select
 
 
 class ModelMeta(ABCMeta):
@@ -47,3 +48,14 @@ class Model(metaclass=ModelMeta):
             raise AttributeError(
                 f"'{self.__class__.__name__}' object has no attribute '{key}'"
             )
+
+    @classmethod
+    def to_query(cls) -> Select:
+        return cls.__table__.select()
+
+    @classmethod
+    def deserialize_row(cls, row: Mapping) -> "Model":
+        attributes = {}
+        for name, column in cls.__attributes__.items():
+            attributes[name] = row[column.name]
+        return cls(**attributes)

@@ -9,18 +9,20 @@ class Repo:
         self.database = database
 
     async def all(self, queryable):
-        return await self.database.fetch_all(queryable)
+        rows = await self.database.fetch_all(queryable.to_query())
+        return [queryable.deserialize_row(row) for row in rows]
 
     async def one(self, queryable):
-        rows = await self.database.fetch_all(queryable)
+        rows = await self.database.fetch_all(queryable.to_query())
         count = len(rows)
 
         if count == 1:
-            return rows[0]
-        elif count == 0:
+            return queryable.deserialize_row(rows[0])
+
+        if count == 0:
             raise NoResultsError()
-        else:
-            raise MultipleResultsError(f"Expected at most one result, got {count}")
+
+        raise MultipleResultsError(f"Expected at most one result, got {count}")
 
     async def get(self, queryable, id):
         pass
