@@ -1,9 +1,9 @@
 import os
 import functools
 import asyncio
-from datamapper import Model
+from datamapper import Model, BelongsTo, HasOne
 from databases import Database
-from sqlalchemy import MetaData, Column, BigInteger, String
+from sqlalchemy import MetaData, Column, BigInteger, String, ForeignKey
 from sqlalchemy.dialects import postgresql
 from sqlalchemy_utils import create_database, database_exists
 
@@ -21,6 +21,16 @@ class User(Model):
 
     id = Column(BigInteger, primary_key=True)
     name = Column(String)
+    profile = HasOne("tests.support.Profile", "user_id")
+
+
+class Profile(Model):
+    __tablename__ = "profiles"
+    __metadata__ = metadata
+
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    user = BelongsTo("tests.support.User", "user_id")
 
 
 def to_sql(statement):

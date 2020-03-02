@@ -1,7 +1,9 @@
 import pytest
 from sqlalchemy import Column, Table
 from sqlalchemy.sql.expression import Select
-from tests.support import metadata, User
+from tests.support import metadata, User, Profile
+from datamapper.model import Association
+from datamapper.errors import NotLoadedError
 
 
 def test_getttr():
@@ -18,6 +20,20 @@ def test_getattr_invalid():
         user.missing_attribute
 
 
+def test_getattr_association():
+    user = User()
+    profile = Profile()
+    user._associations["profile"] = profile
+    assert user.profile == profile
+
+
+def test_getattr_association_not_loaded():
+    user = User()
+
+    with pytest.raises(NotLoadedError):
+        user.profile
+
+
 def test_tablename():
     assert User.__tablename__ == "users"
 
@@ -28,3 +44,16 @@ def test_table():
 
     assert User.__table__.name == "users"
     assert User.__table__.metadata == metadata
+
+
+def test_association():
+    assoc = Association(User, "user_id")
+    assert assoc.model == User
+    assert assoc.foreign_key == "user_id"
+    assert assoc.primary_key == "id"
+
+
+def test_model_as_string():
+    assoc = Association("tests.support.User", "user_id")
+    assert assoc.model == User
+    assert assoc.primary_key == "id"

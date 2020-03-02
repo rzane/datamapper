@@ -8,3 +8,7 @@ class NoResultsError(Error):
 
 class MultipleResultsError(Error):
     pass
+
+
+class NotLoadedError(Error):
+    pass
