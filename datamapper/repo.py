@@ -36,16 +36,16 @@ class Repo:
     async def insert(self, model, **values):
         pass
 
-    async def update(self, model, **values):
+    async def update(self, record, **values):
         pass
 
-    async def delete(self, model, **values):
+    async def delete(self, record, **values):
         pass
 
-    async def update_all(self, model, **values) -> int:
+    async def update_all(self, queryable, **values) -> int:
         pass
 
-    async def delete_all(self, queryable) -> int:
+    async def delete_all(self, queryable, **values) -> int:
         pass
 
 
