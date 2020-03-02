@@ -28,5 +28,27 @@ async def test_one():
     assert user.name == "Ray"
 
 
+@pytest.mark.asyncio
+async def test_get_by():
+    await insert_user(name="Ray")
+
+    user = await repo.get_by(Query(User), name="Ray")
+    assert user.name == "Ray"
+
+    user = await repo.get_by(User, name="Ray")
+    assert user.name == "Ray"
+
+
+@pytest.mark.asyncio
+async def test_get():
+    id = await insert_user(name="Ray")
+
+    user = await repo.get(Query(User), id)
+    assert user.id == id
+
+    user = await repo.get(User, id)
+    assert user.id == id
+
+
 async def insert_user(**values):
-    await database.execute(User.__table__.insert().values(**values))
+    return await database.execute(User.__table__.insert().values(**values))

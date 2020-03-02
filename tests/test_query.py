@@ -4,19 +4,16 @@ from datamapper import Query
 from tests.support import User, to_sql
 
 
-def test_to_query():
-    query = Query(User).to_query()
-    assert isinstance(query, Select)
-    assert "SELECT" in to_sql(query)
-    assert "FROM users" in to_sql(query)
-
-
-def test_deserialize_row():
-    row = {"id": 9, "name": "Ray"}
+def test_model():
     query = Query(User)
-    user = query.deserialize_row(row)
-    assert user.id == 9
-    assert user.name == "Ray"
+    assert query.model == User
+
+
+def test_to_query():
+    query = Query(User)
+    assert isinstance(query.to_query(), Select)
+    assert "SELECT" in to_sql(query.to_query())
+    assert "FROM users" in to_sql(query.to_query())
 
 
 def test_limit():

@@ -28,14 +28,3 @@ def test_table():
 
     assert User.__table__.name == "users"
     assert User.__table__.metadata == metadata
-
-
-def test_to_query():
-    assert isinstance(User.to_query(), Select)
-
-
-def test_deserialize_row():
-    row = {"id": 9, "name": "Ray"}
-    user = User.deserialize_row(row)
-    assert user.id == 9
-    assert user.name == "Ray"
