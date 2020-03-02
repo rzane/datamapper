@@ -1,6 +1,6 @@
 from databases import Database
 from datamapper.query import Query
-from datamapper.exceptions import NoResultsError, MultipleResultsError
+from datamapper.errors import NoResultsError, MultipleResultsError
 from sqlalchemy.sql.expression import Select, ClauseElement
 
 
