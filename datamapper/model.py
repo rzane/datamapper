@@ -52,17 +52,17 @@ class Model(metaclass=ModelMeta):
         self._associations: dict = {}
 
     def __getattr__(self, key: str) -> Any:
-        model_name = self.__class__.__name__
-
         if key in self.__attributes__:
             return self._attributes.get(key)
         elif key in self.__associations__:
             if key in self._associations:
                 return self._associations[key]
             else:
-                raise NotLoadedError(f"'{model_name}.{key}' is not loaded")
+                raise NotLoadedError(
+                    f"Association '{key}' is not loaded for model '{self.__class__}'"
+                )
         else:
-            raise AttributeError(f"'{model_name}' object has no attribute '{key}'")
+            raise AttributeError(f"'{self.__class__}' object has no attribute '{key}'")
 
 
 class Association:

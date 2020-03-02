@@ -1,7 +1,7 @@
-from typing import Any, Type, Mapping, Union, List
+from typing import Any, Type, Mapping, Union, List, Optional
 from databases import Database
-from datamapper.model import Model
-from datamapper.query import Queryable, to_query
+from datamapper.model import Model, BelongsTo, HasOne, HasMany
+from datamapper.query import Queryable, Query, to_query
 from datamapper.errors import NoResultsError, MultipleResultsError
 from sqlalchemy import func
 from sqlalchemy.sql.expression import Select, ClauseElement
@@ -15,6 +15,13 @@ class Repo:
         query = to_query(queryable)
         rows = await self.database.fetch_all(query.to_sql())
         return [deserialize(row, query.model) for row in rows]
+
+    async def first(self, queryable: Queryable) -> Optional[Model]:
+        records = await self.all(queryable)
+        if records:
+            return records[0]
+        else:
+            return None
 
     async def one(self, queryable: Queryable) -> Model:
         records = await self.all(queryable)
@@ -68,6 +75,26 @@ class Repo:
         query = to_query(queryable)
         sql = query.to_delete_sql()
         await self.database.execute(sql)
+
+    async def preload(self, record: Model, name: str) -> Model:
+        assert name in record.__associations__
+        assoc = record.__associations__[name]
+        result: Union[Optional[Model], List[Model]] = None
+
+        if isinstance(assoc, BelongsTo):
+            where = {assoc.primary_key: getattr(record, assoc.foreign_key)}
+            result = await self.first(Query(assoc.model).where(**where))
+
+        elif isinstance(assoc, HasOne):
+            where = {assoc.foreign_key: getattr(record, assoc.primary_key)}
+            result = await self.first(Query(assoc.model).where(**where))
+
+        elif isinstance(assoc, HasMany):
+            where = {assoc.foreign_key: getattr(record, assoc.primary_key)}
+            result = await self.all(Query(assoc.model).where(**where))
+
+        record._associations[name] = result
+        return record
 
 
 def deserialize(row: Mapping, model: Type[Model]) -> Model:

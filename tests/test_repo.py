@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import text
 from datamapper import Repo, Query
-from tests.support import database, User
+from tests.support import database, User, Home, Pet
 
 repo = Repo(database)
 
@@ -101,6 +101,31 @@ async def test_delete_all():
     await repo.insert(User, name="Foo")
     await repo.delete_all(Query(User).where(name="Foo"))
     assert await list_users() == ["Bar"]
+
+
+@pytest.mark.asyncio
+async def test_preload_belongs_to():
+    user = await repo.insert(User)
+    home = await repo.insert(Home, owner_id=user.id)
+    await repo.preload(home, "owner")
+    assert home.owner.id == user.id
+
+
+@pytest.mark.asyncio
+async def test_preload_has_one():
+    user = await repo.insert(User)
+    home = await repo.insert(Home, owner_id=user.id)
+    await repo.preload(user, "home")
+    assert user.home.id == home.id
+
+
+@pytest.mark.asyncio
+async def test_preload_has_many():
+    user = await repo.insert(User)
+    pet = await repo.insert(Pet, owner_id=user.id)
+    await repo.preload(user, "pets")
+    assert len(user.pets) == 1
+    assert user.pets[0].id == pet.id
 
 
 async def list_users(**values):
