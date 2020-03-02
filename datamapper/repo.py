@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any, Type, Mapping, Union, List, Optional
 from databases import Database
 from datamapper.model import Model, BelongsTo, HasOne, HasMany
@@ -76,25 +77,18 @@ class Repo:
         sql = query.to_delete_sql()
         await self.database.execute(sql)
 
-    async def preload(self, record: Model, name: str) -> Model:
-        assert name in record.__associations__
-        assoc = record.__associations__[name]
-        result: Union[Optional[Model], List[Model]] = None
+    async def preload(self, records: Union[Model, List[Model]], name: str) -> None:
+        if not records:
+            return
 
-        if isinstance(assoc, BelongsTo):
-            where = {assoc.primary_key: getattr(record, assoc.foreign_key)}
-            result = await self.first(Query(assoc.model).where(**where))
+        if not isinstance(records, list):
+            records = [records]
 
-        elif isinstance(assoc, HasOne):
-            where = {assoc.foreign_key: getattr(record, assoc.primary_key)}
-            result = await self.first(Query(assoc.model).where(**where))
-
-        elif isinstance(assoc, HasMany):
-            where = {assoc.foreign_key: getattr(record, assoc.primary_key)}
-            result = await self.all(Query(assoc.model).where(**where))
-
-        record._associations[name] = result
-        return record
+        association = records[0].__associations__[name]
+        where = association.where_clause(records)
+        query = Query(association.model).where(**where)
+        associated_records = await self.all(query)
+        association.populate(records, associated_records, name)
 
 
 def deserialize(row: Mapping, model: Type[Model]) -> Model:

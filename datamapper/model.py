@@ -1,6 +1,6 @@
 from abc import ABCMeta
 from importlib import import_module
-from typing import Any, Sequence, Mapping, Union, Type
+from typing import Any, Sequence, Mapping, Union, Type, List, Dict
 from sqlalchemy import Table, Column, MetaData
 from sqlalchemy.sql.expression import ClauseElement
 from datamapper.errors import NotLoadedError
@@ -81,14 +81,61 @@ class Association:
             self._model = cls
         return self._model  # type: ignore
 
+    def where_clause(self, records: List[Model]) -> dict:
+        raise NotImplementedError()
+
+    def populate(
+        self, records: List[Model], associated_records: List[Model], name: str
+    ) -> None:
+        raise NotImplementedError()
+
 
 class BelongsTo(Association):
-    pass
+    def where_clause(self, records: List[Model]) -> dict:
+        return {self.primary_key: [getattr(r, self.foreign_key) for r in records]}
+
+    def populate(
+        self, records: List[Model], associated_records: List[Model], name: str
+    ) -> None:
+        result: Dict[Any, Model] = {}
+        for associated_record in associated_records:
+            key = getattr(associated_record, self.primary_key)
+            result[key] = associated_record
+        for record in records:
+            key = getattr(record, self.foreign_key)
+            record._associations[name] = result.get(key)
 
 
 class HasOne(Association):
-    pass
+    def where_clause(self, records: List[Model]) -> dict:
+        return {self.foreign_key: [getattr(r, self.primary_key) for r in records]}
+
+    def populate(
+        self, records: List[Model], associated_records: List[Model], name: str
+    ) -> None:
+        result: Dict[Any, Model] = {}
+        for associated_record in associated_records:
+            key = getattr(associated_record, self.foreign_key)
+            result[key] = associated_record
+        for record in records:
+            key = getattr(record, self.primary_key)
+            record._associations[name] = result.get(key)
 
 
 class HasMany(Association):
-    pass
+    def where_clause(self, records: List[Model]) -> dict:
+        return {self.foreign_key: [getattr(r, self.primary_key) for r in records]}
+
+    def populate(
+        self, records: List[Model], associated_records: List[Model], name: str
+    ) -> None:
+        result: Dict[Any, List[Model]] = {}
+        for associated_record in associated_records:
+            key = getattr(associated_record, self.foreign_key)
+            if key in result:
+                result[key].append(associated_record)
+            else:
+                result[key] = [associated_record]
+        for record in records:
+            key = getattr(record, self.primary_key)
+            record._associations[name] = result.get(key, [])
