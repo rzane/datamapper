@@ -11,6 +11,14 @@ def test_to_query():
     assert "FROM users" in to_sql(query)
 
 
+def test_deserialize_row():
+    row = {"id": 9, "name": "Ray"}
+    query = Query(User)
+    user = query.deserialize_row(row)
+    assert user.id == 9
+    assert user.name == "Ray"
+
+
 def test_limit():
     query = Query(User).limit(29)
     assert "LIMIT 29" in to_sql(query.to_query())

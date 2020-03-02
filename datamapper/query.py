@@ -1,7 +1,7 @@
 from typing import Any, List, Mapping, Union, Optional
 from datamapper.model import Model
 from sqlalchemy import and_, or_, text, Column
-from sqlalchemy.sql.expression import Select, ClauseElement, ClauseList
+from sqlalchemy.sql.expression import Select, ClauseElement, ClauseList, TextClause
 
 
 class SQL:
@@ -9,7 +9,7 @@ class SQL:
         self._sql = sql
         self._model = model
 
-    def to_query(self):
+    def to_query(self) -> TextClause:
         return text(self._sql)
 
     def deserialize_row(self, row: Mapping) -> Union[Mapping, Model]:

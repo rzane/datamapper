@@ -7,12 +7,18 @@ repo = Repo(database)
 
 
 @pytest.mark.asyncio
-async def test_all():
-    rows = await repo.all(SQL("select 1 as value"))
-    assert rows[0]["value"] == 1
+async def test_all_sql():
+    await insert_user(name="Ray")
+    rows = await repo.all(SQL("select * from users"))
+    assert rows[0]["name"] == "Ray"
 
 
 @pytest.mark.asyncio
-async def test_one():
-    rows = await repo.one(SQL("select 1 as value"))
-    assert rows["value"] == 1
+async def test_one_sql():
+    await insert_user(name="Ray")
+    row = await repo.one(SQL("select * from users"))
+    assert row["name"] == "Ray"
+
+
+async def insert_user(**values):
+    await database.execute(User.__table__.insert().values(**values))
