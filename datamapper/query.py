@@ -59,7 +59,7 @@ class Query:
             query._where = and_(query._where, *exprs)
         return query
 
-    def order_by(self, *args: List[Union[str, ClauseElement]]) -> "Query":
+    def order_by(self, *args: Union[str, ClauseElement]) -> "Query":
         exprs = []
 
         for arg in args:
@@ -103,10 +103,10 @@ class Query:
         return query
 
 
-Queryable = Union[Model, Query]
+Queryable = Union[Query, Type[Model]]
 
 
-def to_query(queryable: Queryable) -> Query:
+def to_query(queryable: Any) -> Query:
     if isinstance(queryable, Query):
         return queryable
 
