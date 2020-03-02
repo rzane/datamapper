@@ -77,18 +77,19 @@ class Repo:
         sql = query.to_delete_sql()
         await self.database.execute(sql)
 
-    async def preload(self, records: Union[Model, List[Model]], name: str) -> None:
+    async def preload(self, records: Union[Model, List[Model]], *names: str) -> None:
         if not records:
             return
 
         if not isinstance(records, list):
             records = [records]
 
-        association = records[0].__associations__[name]
-        where = association.where_clause(records)
-        query = Query(association.model).where(**where)
-        associated_records = await self.all(query)
-        association.populate(records, associated_records, name)
+        for name in names:
+            association = records[0].__associations__[name]
+            where = association.where_clause(records)
+            query = Query(association.model).where(**where)
+            associated_records = await self.all(query)
+            association.populate(records, associated_records, name)
 
 
 def deserialize(row: Mapping, model: Type[Model]) -> Model:
