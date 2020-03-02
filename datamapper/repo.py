@@ -1,5 +1,7 @@
 from databases import Database
+from datamapper.query import Query
 from datamapper.exceptions import NoResultsError, MultipleResultsError
+from sqlalchemy.sql.expression import Select, ClauseElement
 
 
 class Repo:
@@ -43,3 +45,14 @@ class Repo:
 
     async def delete_all(self, queryable) -> int:
         pass
+
+
+def _build_query(queryable):
+    if isinstance(queryable, Query):
+        return queryable.build()
+
+    if isinstance(queryable, Select):
+        return queryable
+
+    if isinstance(queryable, ClauseElement):
+        return queryable

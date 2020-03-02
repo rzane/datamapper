@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from typing import Any, Sequence
+from typing import Any, Sequence, Mapping
 from sqlalchemy import Table, Column, MetaData
 
 
@@ -14,15 +14,19 @@ class ModelMeta(ABCMeta):
         assert "__metadata__" in attrs, "__metadata__ is required"
 
         columns = []
+        attributes = {}
         for name, attr in list(attrs.items()):
             if isinstance(attr, Column):
                 if attr.name is None:
                     attr.name = name
+
+                attributes[name] = attr
                 columns.append(attr)
                 attrs.pop(name)
 
         model = super(ModelMeta, cls).__new__(cls, name, bases, attrs)  # type: ignore
         model.__table__ = Table(model.__tablename__, model.__metadata__, *columns)
+        model.__attributes__ = attributes
 
         return model
 
@@ -31,12 +35,13 @@ class Model(metaclass=ModelMeta):
     __abstract__ = True
     __table__: Table
     __metadata__: MetaData
+    __attributes__: Mapping[str, Column]
 
     def __init__(self, **attributes: dict):
         self._attributes = attributes
 
     def __getattr__(self, key: str) -> Any:
-        if hasattr(self.__table__.columns, key):
+        if key in self.__attributes__:
             return self._attributes.get(key)
         else:
             raise AttributeError(

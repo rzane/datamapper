@@ -1,25 +1,25 @@
-from typing import List, Union
+from typing import Any, List, Mapping, Union, Optional
 from datamapper.model import Model
 from sqlalchemy import and_, or_, Column
 from sqlalchemy.sql.expression import Select, ClauseElement, ClauseList
 
 
 class Query:
-    model: Model
-    _where: Union[ClauseList, None]
-    _limit: Union[int, None]
-    _offset: Union[int, None]
+    _model: Model
+    _where: Optional[ClauseList]
+    _limit: Optional[int]
+    _offset: Optional[int]
     _order_by: List[str]
 
     def __init__(self, model: Model):
-        self.model = model
+        self._model = model
         self._limit = None
         self._offset = None
         self._where = None
         self._order_by = []
 
-    def build(self) -> Select:
-        statement = self.model.__table__.select()
+    def to_query(self):
+        statement = self._model.__table__.select()
 
         if self._limit is not None:
             statement = statement.limit(self._limit)
@@ -34,6 +34,11 @@ class Query:
             statement = statement.order_by(*self._order_by)
 
         return statement
+
+    def deserialize(self, row):
+        for column in cls.__table__.columns:
+            if column.name not in item:
+                item[column.name] = row[column]
 
     def limit(self, value: int) -> "Query":
         query = self._clone()
@@ -85,10 +90,10 @@ class Query:
         return query
 
     def _get_column(self, name: str) -> Column:
-        return getattr(self.model.__table__.columns, name)
+        return self._model.__attributes__[name]
 
     def _clone(self) -> "Query":
-        query = Query(self.model)
+        query = Query(self._model)
         query._where = self._where
         query._limit = self._limit
         query._offset = self._offset
