@@ -93,9 +93,8 @@ class Association:
     def model(self) -> Type[Model]:
         if isinstance(self._model, str):
             mod, name = self._model.rsplit(".", 1)
-            cls = getattr(import_module(mod), name)
-            self._model = cls
-        return self._model  # type: ignore
+            self._model = getattr(import_module(mod), name)
+        return cast(Type[Model], self._model)
 
     def where_clause(self, parents: List[Model]) -> dict:
         raise NotImplementedError()
