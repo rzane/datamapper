@@ -6,11 +6,14 @@ say() {
   printf "\e[33m$1\e[0m\n"
 }
 
-say "==>> Formatting..."
+say "==>> Running the code formatter..."
 poetry run black .
 
-say "\n==>> Typechecking..."
+say "\n==>> Running the linter..."
+poetry run flake8 datamapper tests
+
+say "\n==>> Running the typechecker..."
 poetry run mypy datamapper tests --pretty
 
-say "\n==>> Testing..."
+say "\n==>> Running the test suite..."
 poetry run pytest "$@"

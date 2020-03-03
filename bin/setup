@@ -15,8 +15,9 @@ cat <<EOF > .vscode/settings.json
 {
   "python.pythonPath": "$(poetry env info -p)/bin/python",
   "python.formatting.provider": "black",
-  "python.linting.pylintEnabled": false,
+  "python.linting.enabled": true,
   "python.linting.mypyEnabled": true,
-  "python.linting.enabled": true
+  "python.linting.flake8Enabled": true,
+  "python.linting.pylintEnabled": false
 }
 EOF
