@@ -1,4 +1,4 @@
-from typing import Any, Type, Union, List, Optional, Dict
+from typing import Any, Type, Union, List, Optional
 from databases import Database
 from datamapper.queryable import Queryable
 from datamapper.model import Model
@@ -74,43 +74,27 @@ class Repo:
     async def delete_all(self, query: Queryable) -> None:
         await self.database.execute(query.to_delete_sql())
 
-    # TODO: Use `asyncio.gather` to preload concurrently
     async def preload(
-        self, records: Union[Model, List[Model]], preload: Union[str, List, Dict],
+        self, records: Union[Model, List[Model]], preloads: Union[str, List[str]],
     ) -> None:
-        # If we were given an empty list or `None`, we should stop.
-        # In this scenario, we can't detect a model.
-        if not records:
+        if not records or not preloads:
             return
 
-        # Make sure the list of records is a list.
         if not isinstance(records, list):
             records = [records]
 
-        # Preload multiple associations concurrently.
-        if isinstance(preload, list):
-            for value in preload:
-                await self.preload(records, value)
+        if not isinstance(preloads, list):
+            preloads = [preloads]
 
-        # Preload nested associations.
-        elif isinstance(preload, dict):
-            for key, value in preload.items():
-                children = await self._preload_one(records, key)
-                await self.preload(children, value)
-
-        # Preload a single association
-        elif isinstance(preload, str):
-            await self._preload_one(records, preload)
-
-        else:
-            raise TypeError(f"Unable to preload: {preload}")
-
-    async def _preload_one(self, parents: List[Model], preload: str) -> List[Model]:
-        assoc = parents[0].__associations__[preload]
-        query = assoc.query(parents)
-        children = await self.all(query)
-        assoc.populate(parents, children, preload)
-        return children
+        # FIXME: Avoid loading an association twice
+        for preload in preloads:
+            parents = records
+            for name in preload.split("."):
+                assoc = parents[0].__associations__[name]
+                query = assoc.query(parents)
+                children = await self.all(query)
+                assoc.populate(parents, children, name)
+                parents = children
 
 
 def _assert_one(rows: list) -> None:

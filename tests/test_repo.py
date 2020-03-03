@@ -159,7 +159,7 @@ async def test_preload_nested():
     home = await repo.insert(Home, owner_id=user.id)
     pet = await repo.insert(Pet, owner_id=user.id)
 
-    await repo.preload(pet, {"owner": {"home": "owner"}})
+    await repo.preload(pet, "owner.home.owner")
     assert pet.owner.id == user.id
     assert pet.owner.home.id == home.id
     assert pet.owner.home.owner.id == user.id
