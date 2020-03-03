@@ -1,10 +1,13 @@
 from typing import List, Dict, Any
+from datamapper.query import Query
 from datamapper.model import Model, Association
 
 
 class BelongsTo(Association):
-    def where_clause(self, parents: List[Model]) -> dict:
-        return {self.primary_key: [getattr(r, self.foreign_key) for r in parents]}
+    def query(self, parents: List[Model]) -> Query:
+        values = [getattr(r, self.foreign_key) for r in parents]
+        where = {self.primary_key: values}
+        return Query(self.model).where(**where)
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         lookup: Dict[Any, Model] = {}
@@ -16,8 +19,10 @@ class BelongsTo(Association):
 
 
 class HasOne(Association):
-    def where_clause(self, parents: List[Model]) -> dict:
-        return {self.foreign_key: [getattr(r, self.primary_key) for r in parents]}
+    def query(self, parents: List[Model]) -> Query:
+        values = [getattr(r, self.primary_key) for r in parents]
+        where = {self.foreign_key: values}
+        return Query(self.model).where(**where)
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         lookup: Dict[Any, Model] = {}
@@ -29,8 +34,10 @@ class HasOne(Association):
 
 
 class HasMany(Association):
-    def where_clause(self, parents: List[Model]) -> dict:
-        return {self.foreign_key: [getattr(r, self.primary_key) for r in parents]}
+    def query(self, parents: List[Model]) -> Query:
+        values = [getattr(r, self.primary_key) for r in parents]
+        where = {self.foreign_key: values}
+        return Query(self.model).where(**where)
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         lookup: Dict[Any, List[Model]] = {}

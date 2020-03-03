@@ -1,11 +1,8 @@
 import os
-import functools
-import asyncio
 from datamapper import Model, BelongsTo, HasOne, HasMany
 from databases import Database
 from sqlalchemy import MetaData, Column, BigInteger, String, ForeignKey
 from sqlalchemy.dialects import postgresql
-from sqlalchemy_utils import create_database, database_exists
 
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/datamapper")

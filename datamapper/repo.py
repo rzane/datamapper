@@ -1,12 +1,9 @@
-from collections import defaultdict
-from typing import Any, Type, Mapping, Union, List, Optional, Dict
+from typing import Any, Type, Union, List, Optional, Dict
 from databases import Database
 from datamapper.queryable import Queryable
 from datamapper.model import Model
-from datamapper.query import Query
 from datamapper.errors import NoResultsError, MultipleResultsError
 from sqlalchemy import func
-from sqlalchemy.sql.expression import Select, ClauseElement
 
 
 class Repo:
@@ -34,7 +31,7 @@ class Repo:
         sql = query.to_sql()
 
         for key, value in values.items():
-            col = getattr(sql.columns, key)
+            col = query.column(key)
             sql = sql.where(col == value)
 
         rows = await self.database.fetch_all(query.to_sql())
@@ -110,8 +107,7 @@ class Repo:
 
     async def _preload_one(self, parents: List[Model], preload: str) -> List[Model]:
         assoc = parents[0].__associations__[preload]
-        where = assoc.where_clause(parents)
-        query = Query(assoc.model).where(**where)
+        query = assoc.query(parents)
         children = await self.all(query)
         assoc.populate(parents, children, preload)
         return children

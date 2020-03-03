@@ -1,6 +1,5 @@
 import pytest
 from sqlalchemy import Column, Table
-from sqlalchemy.sql.expression import Select
 from tests.support import metadata, User, Home
 from datamapper.model import Association
 from datamapper.errors import NotLoadedError

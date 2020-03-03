@@ -1,5 +1,4 @@
 import pytest
-from sqlalchemy import text
 from datamapper import Repo, Query
 from tests.support import database, User, Home, Pet
 

@@ -1,9 +1,10 @@
 from abc import ABCMeta
 from importlib import import_module
-from typing import Any, Sequence, Mapping, Union, Type, List, Dict
+from typing import Any, Sequence, Mapping, Union, Type, List, cast
 from sqlalchemy import Table, Column, MetaData
 from sqlalchemy.sql.expression import Select, Update, Delete
 from datamapper.errors import NotLoadedError
+from datamapper.queryable import Queryable
 
 
 class ModelMeta(ABCMeta):
@@ -60,6 +61,10 @@ class Model(metaclass=ModelMeta):
         return cls.__table__.delete()
 
     @classmethod
+    def column(cls, name: str) -> Column:
+        return cls.__attributes__[name]
+
+    @classmethod
     def deserialize(cls, row: Mapping) -> "Model":
         return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
@@ -96,8 +101,8 @@ class Association:
             self._model = getattr(import_module(mod), name)
         return cast(Type[Model], self._model)
 
-    def where_clause(self, parents: List[Model]) -> dict:
-        raise NotImplementedError()
+    def query(self, parents: List[Model]) -> Queryable:
+        ...
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        raise NotImplementedError()
+        ...
