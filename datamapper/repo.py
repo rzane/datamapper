@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Any, Type, Mapping, Union, List, Optional, Dict
 from databases import Database
 from datamapper.queryable import Queryable
-from datamapper.model import Model, BelongsTo, HasOne, HasMany
+from datamapper.model import Model
 from datamapper.query import Query
 from datamapper.errors import NoResultsError, MultipleResultsError
 from sqlalchemy import func
