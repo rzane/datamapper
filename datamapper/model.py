@@ -81,61 +81,51 @@ class Association:
             self._model = cls
         return self._model  # type: ignore
 
-    def where_clause(self, records: List[Model]) -> dict:
+    def where_clause(self, parents: List[Model]) -> dict:
         raise NotImplementedError()
 
-    def populate(
-        self, records: List[Model], associated_records: List[Model], name: str
-    ) -> None:
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         raise NotImplementedError()
 
 
 class BelongsTo(Association):
-    def where_clause(self, records: List[Model]) -> dict:
-        return {self.primary_key: [getattr(r, self.foreign_key) for r in records]}
+    def where_clause(self, parents: List[Model]) -> dict:
+        return {self.primary_key: [getattr(r, self.foreign_key) for r in parents]}
 
-    def populate(
-        self, records: List[Model], associated_records: List[Model], name: str
-    ) -> None:
-        result: Dict[Any, Model] = {}
-        for associated_record in associated_records:
-            key = getattr(associated_record, self.primary_key)
-            result[key] = associated_record
-        for record in records:
-            key = getattr(record, self.foreign_key)
-            record._associations[name] = result.get(key)
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
+        lookup: Dict[Any, Model] = {}
+        for child in children:
+            lookup[getattr(child, self.primary_key)] = child
+        for parent in parents:
+            key = getattr(parent, self.foreign_key)
+            parent._associations[name] = lookup.get(key)
 
 
 class HasOne(Association):
-    def where_clause(self, records: List[Model]) -> dict:
-        return {self.foreign_key: [getattr(r, self.primary_key) for r in records]}
+    def where_clause(self, parents: List[Model]) -> dict:
+        return {self.foreign_key: [getattr(r, self.primary_key) for r in parents]}
 
-    def populate(
-        self, records: List[Model], associated_records: List[Model], name: str
-    ) -> None:
-        result: Dict[Any, Model] = {}
-        for associated_record in associated_records:
-            key = getattr(associated_record, self.foreign_key)
-            result[key] = associated_record
-        for record in records:
-            key = getattr(record, self.primary_key)
-            record._associations[name] = result.get(key)
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
+        lookup: Dict[Any, Model] = {}
+        for child in children:
+            lookup[getattr(child, self.foreign_key)] = child
+        for parent in parents:
+            key = getattr(parent, self.primary_key)
+            parent._associations[name] = lookup.get(key)
 
 
 class HasMany(Association):
-    def where_clause(self, records: List[Model]) -> dict:
-        return {self.foreign_key: [getattr(r, self.primary_key) for r in records]}
+    def where_clause(self, parents: List[Model]) -> dict:
+        return {self.foreign_key: [getattr(r, self.primary_key) for r in parents]}
 
-    def populate(
-        self, records: List[Model], associated_records: List[Model], name: str
-    ) -> None:
-        result: Dict[Any, List[Model]] = {}
-        for associated_record in associated_records:
-            key = getattr(associated_record, self.foreign_key)
-            if key in result:
-                result[key].append(associated_record)
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
+        lookup: Dict[Any, List[Model]] = {}
+        for child in children:
+            key = getattr(child, self.foreign_key)
+            if key in lookup:
+                lookup[key].append(child)
             else:
-                result[key] = [associated_record]
-        for record in records:
-            key = getattr(record, self.primary_key)
-            record._associations[name] = result.get(key, [])
+                lookup[key] = [child]
+        for parent in parents:
+            key = getattr(parent, self.primary_key)
+            parent._associations[name] = lookup.get(key, [])

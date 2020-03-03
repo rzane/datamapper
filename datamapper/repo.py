@@ -98,24 +98,23 @@ class Repo:
         # Preload nested associations.
         elif isinstance(preload, dict):
             for key, value in preload.items():
-                # TODO: This is the same as the next else.
-                association = records[0].__associations__[key]
-                where = association.where_clause(records)
-                query = Query(association.model).where(**where)
-                associated_records = await self.all(query)
-                association.populate(records, associated_records, key)
+                children = await self._preload_one(records, key)
+                await self.preload(children, value)
 
-                await self.preload(associated_records, value)
-
+        # Preload a single association
         elif isinstance(preload, str):
-            association = records[0].__associations__[preload]
-            where = association.where_clause(records)
-            query = Query(association.model).where(**where)
-            associated_records = await self.all(query)
-            association.populate(records, associated_records, preload)
+            await self._preload_one(records, preload)
 
         else:
             raise TypeError(f"Unable to preload: {preload}")
+
+    async def _preload_one(self, parents: List[Model], preload: str) -> List[Model]:
+        assoc = parents[0].__associations__[preload]
+        where = assoc.where_clause(parents)
+        query = Query(assoc.model).where(**where)
+        children = await self.all(query)
+        assoc.populate(parents, children, preload)
+        return children
 
 
 def deserialize(row: Mapping, model: Type[Model]) -> Model:
