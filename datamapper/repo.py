@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Type, Mapping, Union, List, Optional
+from typing import Any, Type, Mapping, Union, List, Optional, Dict
 from databases import Database
 from datamapper.model import Model, BelongsTo, HasOne, HasMany
 from datamapper.query import Queryable, Query, to_query
@@ -77,19 +77,45 @@ class Repo:
         sql = query.to_delete_sql()
         await self.database.execute(sql)
 
-    async def preload(self, records: Union[Model, List[Model]], *names: str) -> None:
+    # TODO: Use `asyncio.gather` to preload concurrently
+    async def preload(
+        self, records: Union[Model, List[Model]], preload: Union[str, List, Dict],
+    ) -> None:
+        # If we were given an empty list or `None`, we should stop.
+        # In this scenario, we can't detect a model.
         if not records:
             return
 
+        # Make sure the list of records is a list.
         if not isinstance(records, list):
             records = [records]
 
-        for name in names:
-            association = records[0].__associations__[name]
+        # Preload multiple associations concurrently.
+        if isinstance(preload, list):
+            for value in preload:
+                await self.preload(records, value)
+
+        # Preload nested associations.
+        elif isinstance(preload, dict):
+            for key, value in preload.items():
+                # TODO: This is the same as the next else.
+                association = records[0].__associations__[key]
+                where = association.where_clause(records)
+                query = Query(association.model).where(**where)
+                associated_records = await self.all(query)
+                association.populate(records, associated_records, key)
+
+                await self.preload(associated_records, value)
+
+        elif isinstance(preload, str):
+            association = records[0].__associations__[preload]
             where = association.where_clause(records)
             query = Query(association.model).where(**where)
             associated_records = await self.all(query)
-            association.populate(records, associated_records, name)
+            association.populate(records, associated_records, preload)
+
+        else:
+            raise TypeError(f"Unable to preload: {preload}")
 
 
 def deserialize(row: Mapping, model: Type[Model]) -> Model:

@@ -107,6 +107,7 @@ async def test_delete_all():
 async def test_preload_belongs_to():
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
+
     await repo.preload(home, "owner")
     assert home.owner.id == user.id
 
@@ -115,6 +116,7 @@ async def test_preload_belongs_to():
 async def test_preload_has_one():
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
+
     await repo.preload(user, "home")
     assert user.home.id == home.id
 
@@ -123,9 +125,45 @@ async def test_preload_has_one():
 async def test_preload_has_many():
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
+
     await repo.preload(user, "pets")
     assert len(user.pets) == 1
     assert user.pets[0].id == pet.id
+
+
+@pytest.mark.asyncio
+async def test_preload_multiple():
+    user = await repo.insert(User)
+    home = await repo.insert(Home, owner_id=user.id)
+    pet = await repo.insert(Pet, owner_id=user.id)
+
+    await repo.preload(user, ["home", "pets"])
+    assert user.home.id == home.id
+    assert user.pets[0].id == pet.id
+
+
+@pytest.mark.asyncio
+async def test_preload_collection():
+    user1 = await repo.insert(User)
+    user2 = await repo.insert(User)
+    home1 = await repo.insert(Home, owner_id=user1.id)
+    home2 = await repo.insert(Home, owner_id=user2.id)
+
+    await repo.preload([user1, user2], "home")
+    assert user1.home.id == home1.id
+    assert user2.home.id == home2.id
+
+
+@pytest.mark.asyncio
+async def test_preload_nested():
+    user = await repo.insert(User)
+    home = await repo.insert(Home, owner_id=user.id)
+    pet = await repo.insert(Pet, owner_id=user.id)
+
+    await repo.preload(pet, {"owner": {"home": "owner"}})
+    assert pet.owner.id == user.id
+    assert pet.owner.home.id == home.id
+    assert pet.owner.home.owner.id == user.id
 
 
 async def list_users(**values):
