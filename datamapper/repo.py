@@ -1,8 +1,9 @@
 from collections import defaultdict
 from typing import Any, Type, Mapping, Union, List, Optional, Dict
 from databases import Database
+from datamapper.queryable import Queryable
 from datamapper.model import Model, BelongsTo, HasOne, HasMany
-from datamapper.query import Queryable, Query, to_query
+from datamapper.query import Query
 from datamapper.errors import NoResultsError, MultipleResultsError
 from sqlalchemy import func
 from sqlalchemy.sql.expression import Select, ClauseElement
@@ -12,36 +13,39 @@ class Repo:
     def __init__(self, database: Database):
         self.database = database
 
-    async def all(self, queryable: Queryable) -> List[Model]:
-        query = to_query(queryable)
+    async def all(self, query: Queryable) -> List[Model]:
         rows = await self.database.fetch_all(query.to_sql())
-        return [deserialize(row, query.model) for row in rows]
+        return [query.deserialize(row) for row in rows]
 
-    async def first(self, queryable: Queryable) -> Optional[Model]:
-        records = await self.all(queryable)
-        if records:
-            return records[0]
+    async def first(self, query: Queryable) -> Optional[Model]:
+        rows = await self.database.fetch_one(query.to_sql())
+
+        if rows:
+            return query.deserialize(rows[0])
         else:
             return None
 
-    async def one(self, queryable: Queryable) -> Model:
-        records = await self.all(queryable)
-        if len(records) == 1:
-            return records[0]
-        if not records:
-            raise NoResultsError()
-        raise MultipleResultsError(f"Expected at most one result, got {len(records)}")
+    async def one(self, query: Queryable) -> Model:
+        rows = await self.database.fetch_all(query.to_sql())
+        _assert_one(rows)
+        return query.deserialize(rows[0])
 
-    async def get_by(self, queryable: Queryable, **values: Any) -> Model:
-        query = to_query(queryable)
-        query = query.where(**values)
-        return await self.one(query)
+    async def get_by(self, query: Queryable, **values: Any) -> Model:
+        sql = query.to_sql()
+
+        for key, value in values.items():
+            col = getattr(sql.columns, key)
+            sql = sql.where(col == value)
+
+        rows = await self.database.fetch_all(query.to_sql())
+        _assert_one(rows)
+        return query.deserialize(rows[0])
 
     async def get(self, queryable: Queryable, id: Union[str, int]) -> Model:
         return await self.get_by(queryable, id=id)
 
-    async def count(self, queryable: Queryable) -> int:
-        sql = to_query(queryable).to_sql()
+    async def count(self, query: Queryable) -> int:
+        sql = query.to_sql()
         sql = sql.alias("subquery_for_count")
         sql = func.count().select().select_from(sql)
         return await self.database.fetch_val(sql)
@@ -67,15 +71,11 @@ class Repo:
         await self.database.execute(sql)
         return record
 
-    async def update_all(self, queryable: Queryable, **values: Any) -> None:
-        query = to_query(queryable)
-        sql = query.to_update_sql(**values)
-        await self.database.execute(sql)
+    async def update_all(self, query: Queryable, **values: Any) -> None:
+        await self.database.execute(query.to_update_sql().values(**values))
 
-    async def delete_all(self, queryable: Queryable) -> None:
-        query = to_query(queryable)
-        sql = query.to_delete_sql()
-        await self.database.execute(sql)
+    async def delete_all(self, query: Queryable) -> None:
+        await self.database.execute(query.to_delete_sql())
 
     # TODO: Use `asyncio.gather` to preload concurrently
     async def preload(
@@ -117,7 +117,9 @@ class Repo:
         return children
 
 
-def deserialize(row: Mapping, model: Type[Model]) -> Model:
-    return model(
-        **{name: row[column.name] for name, column in model.__attributes__.items()}
-    )
+def _assert_one(rows: list) -> None:
+    if not rows:
+        raise NoResultsError()
+
+    if len(rows) > 1:
+        raise MultipleResultsError(f"Expected at most one result, got {len(rows)}")

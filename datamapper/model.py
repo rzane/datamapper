@@ -2,7 +2,7 @@ from abc import ABCMeta
 from importlib import import_module
 from typing import Any, Sequence, Mapping, Union, Type, List, Dict
 from sqlalchemy import Table, Column, MetaData
-from sqlalchemy.sql.expression import ClauseElement
+from sqlalchemy.sql.expression import Select, Update, Delete
 from datamapper.errors import NotLoadedError
 
 
@@ -46,6 +46,22 @@ class Model(metaclass=ModelMeta):
     __metadata__: MetaData
     __attributes__: Mapping[str, Column]
     __associations__: Mapping[str, "Association"]
+
+    @classmethod
+    def to_sql(cls) -> Select:
+        return cls.__table__.select()
+
+    @classmethod
+    def to_update_sql(cls) -> Update:
+        return cls.__table__.update()
+
+    @classmethod
+    def to_delete_sql(cls) -> Delete:
+        return cls.__table__.delete()
+
+    @classmethod
+    def deserialize(cls, row: Mapping) -> "Model":
+        return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
     def __init__(self, **attributes: Any):
         self._attributes: dict = attributes

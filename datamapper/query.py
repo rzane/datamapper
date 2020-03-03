@@ -1,7 +1,7 @@
 from typing import Any, List, Mapping, Union, Optional, Type
 from datamapper.model import Model
 from sqlalchemy import and_, or_, Column
-from sqlalchemy.sql.expression import ClauseElement, ClauseList
+from sqlalchemy.sql.expression import ClauseElement, ClauseList, Select, Update, Delete
 
 
 class Query:
@@ -18,14 +18,17 @@ class Query:
         self._where = None
         self._order_by = []
 
-    def to_sql(self) -> ClauseElement:
+    def to_sql(self) -> Select:
         return self._build_query(self.model.__table__.select())
 
-    def to_update_sql(self, **values: Any) -> ClauseElement:
-        return self._build_query(self.model.__table__.update()).values(**values)
+    def to_update_sql(self) -> Update:
+        return self._build_query(self.model.__table__.update())
 
-    def to_delete_sql(self) -> ClauseElement:
+    def to_delete_sql(self) -> Delete:
         return self._build_query(self.model.__table__.delete())
+
+    def deserialize(self, row: Mapping) -> "Model":
+        return self.model.deserialize(row)
 
     def limit(self, value: int) -> "Query":
         query = self._clone()
@@ -101,16 +104,3 @@ class Query:
         query._offset = self._offset
         query._order_by = self._order_by
         return query
-
-
-Queryable = Union[Query, Type[Model]]
-
-
-def to_query(queryable: Any) -> Query:
-    if isinstance(queryable, Query):
-        return queryable
-
-    if isinstance(queryable, type) and issubclass(queryable, Model):
-        return Query(queryable)
-
-    raise AssertionError(f"{queryable} is not a queryable object.")
