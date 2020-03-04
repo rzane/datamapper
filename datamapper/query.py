@@ -11,6 +11,7 @@ class Query:
     _limit: Optional[int]
     _offset: Optional[int]
     _order_by: List[str]
+    preloads: List[str]
 
     def __init__(self, model: Type[model.Model]):
         self._model = model
@@ -18,6 +19,7 @@ class Query:
         self._offset = None
         self._where = None
         self._order_by = []
+        self.preloads = []
 
     def to_query(self) -> Query:
         return self
@@ -44,7 +46,7 @@ class Query:
         query._offset = value
         return query
 
-    def where(self, *args: List[ClauseElement], **kwargs: Any) -> Query:
+    def where(self, *args: ClauseElement, **kwargs: Any) -> Query:
         exprs = []
 
         for arg in args:
@@ -81,6 +83,11 @@ class Query:
 
         query = self.__clone()
         query._order_by = query._order_by + exprs
+        return query
+
+    def preload(self, *preloads: str) -> Query:
+        query = self.__clone()
+        query.preloads = query.preloads + list(preloads)
         return query
 
     def __build_query(self, sql: ClauseElement) -> ClauseElement:

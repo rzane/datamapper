@@ -223,5 +223,14 @@ async def test_preload_nested():
     assert pet.owner.home.owner.id == user.id
 
 
+@pytest.mark.asyncio
+async def test_preload_from_query():
+    user = await repo.insert(User)
+    home = await repo.insert(Home, owner_id=user.id)
+
+    home = await repo.one(home.to_query().preload("owner"))
+    assert home.owner.id == user.id
+
+
 async def list_users(**values):
     return [user.name for user in await repo.all(Query(User).order_by("id"))]

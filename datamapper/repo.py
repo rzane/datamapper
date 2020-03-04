@@ -18,18 +18,22 @@ class Repo:
     async def all(self, queryable: Queryable) -> List[Model]:
         query = queryable.to_query()
         rows = await self.database.fetch_all(query.to_sql())
-        return [query.deserialize(row) for row in rows]
+        records = [query.deserialize(row) for row in rows]
+
+        if query.preloads:
+            await self.preload(records, query.preloads)
+
+        return records
 
     async def first(self, queryable: Queryable) -> Optional[Model]:
         query = queryable.to_query().limit(1)
-        rows = await self.database.fetch_all(query.to_sql())
-        return query.deserialize(rows[0]) if rows else None
+        records = await self.all(query)
+        return records[0] if records else None
 
     async def one(self, queryable: Queryable) -> Model:
-        query = queryable.to_query()
-        rows = await self.database.fetch_all(query.to_sql())
-        assert_one(rows)
-        return query.deserialize(rows[0])
+        records = await self.all(queryable)
+        assert_one(records)
+        return records[0]
 
     async def get_by(self, queryable: Queryable, **values: Any) -> Model:
         return await self.one(queryable.to_query().where(**values))
