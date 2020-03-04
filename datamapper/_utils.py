@@ -1,5 +1,6 @@
-from typing import TypeVar, List, Union
+from typing import TypeVar, List, Union, Type
 from datamapper.errors import NoResultsError, MultipleResultsError
+from datamapper.model import Model
 
 T = TypeVar("T")
 
@@ -42,3 +43,19 @@ def expand_preloads(paths: List[str]) -> dict:
                 current[key] = {}
             current = current[key]
     return result
+
+
+def collect_sql_values(model: Union[Model, Type[Model]], values: dict) -> dict:
+    """
+    Convert attributes and association values to values that will be stored
+    in the database.
+    """
+
+    sql_values = {}
+    for key, value in values.items():
+        if key in model.__associations__:
+            assoc = model.__associations__[key]
+            sql_values.update(assoc.values(value))
+        else:
+            sql_values[key] = value
+    return sql_values

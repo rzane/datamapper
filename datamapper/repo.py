@@ -1,9 +1,9 @@
 from typing import Any, Type, Union, List, Optional
+from sqlalchemy import func
 from databases import Database
 from datamapper.queryable import Queryable
 from datamapper.model import Model
-from datamapper._utils import cast_list, expand_preloads, assert_one
-from sqlalchemy import func
+from datamapper._utils import cast_list, expand_preloads, assert_one, collect_sql_values
 
 
 class Repo:
@@ -48,18 +48,21 @@ class Repo:
         return await self.database.fetch_val(sql)
 
     async def insert(self, model: Type[Model], **values: Any) -> Model:
-        sql = model.__table__.insert().values(values)
+        sql_values = collect_sql_values(model, values)
+        sql = model.__table__.insert().values(**sql_values)
         record_id = await self.database.execute(sql)
         return model(id=record_id, **values)
 
     async def update(self, record: Model, **values: Any) -> Model:
         pk = record.__attributes__["id"]
+        sql_values = collect_sql_values(record, values)
         sql = record.__table__.update()
         sql = sql.where(pk == record.id)
-        sql = sql.values(**values)
+        sql = sql.values(**sql_values)
         await self.database.execute(sql)
         for key, value in values.items():
             setattr(record, key, value)
+
         return record
 
     async def delete(self, record: Model, **values: Any) -> Model:

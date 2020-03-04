@@ -66,6 +66,18 @@ async def test_insert():
 
 
 @pytest.mark.asyncio
+async def test_insert_belongs_to():
+    user = await repo.insert(User)
+
+    home = await repo.insert(Home, owner=user)
+    assert home.owner_id == user.id
+    assert home.owner.id == user.id
+
+    home = await repo.get(Home, home.id)
+    assert home.owner_id == user.id
+
+
+@pytest.mark.asyncio
 async def test_update():
     await repo.insert(User, name="Foo")
     user = await repo.insert(User, name="Bar")
@@ -73,6 +85,19 @@ async def test_update():
     assert isinstance(user, User)
     assert user.name == "Changed Bar"
     assert await list_users() == ["Foo", "Changed Bar"]
+
+
+@pytest.mark.asyncio
+async def test_update_belongs_to():
+    user = await repo.insert(User)
+    home = await repo.insert(Home)
+
+    home = await repo.update(home, owner=user)
+    assert home.owner_id == user.id
+    assert home.owner.id == user.id
+
+    home = await repo.get(Home, home.id)
+    assert home.owner_id == user.id
 
 
 @pytest.mark.asyncio
