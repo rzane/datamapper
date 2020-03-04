@@ -23,6 +23,8 @@ class ModelMeta(ABCMeta):
         associations = {}
         for key, attr in list(attrs.items()):
             if isinstance(attr, Column):
+                if attr.key is None:
+                    attr.key = key
                 if attr.name is None:
                     attr.name = key
 
