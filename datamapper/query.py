@@ -31,9 +31,6 @@ class Query:
     def to_delete_sql(self) -> Delete:
         return self.__build_query(self._model.__table__.delete())
 
-    def column(self, name: str) -> Column:
-        return self._model.column(name)
-
     def deserialize(self, row: Mapping) -> model.Model:
         return self._model.deserialize(row)
 
@@ -55,7 +52,7 @@ class Query:
                 exprs.append(arg)
 
         for name, value in kwargs.items():
-            column = self.column(name)
+            column = self.__column(name)
 
             if isinstance(value, list):
                 exprs.append(column.in_(value))
@@ -76,10 +73,10 @@ class Query:
             if isinstance(arg, ClauseElement):
                 exprs.append(arg)
             elif isinstance(arg, str) and arg.startswith("-"):
-                column = self.column(arg[1:])
+                column = self.__column(arg[1:])
                 exprs.append(column.desc())
             elif isinstance(arg, str):
-                column = self.column(arg)
+                column = self.__column(arg)
                 exprs.append(column.asc())
 
         query = self.__clone()
@@ -100,6 +97,9 @@ class Query:
             sql = sql.order_by(*self._order_by)
 
         return sql
+
+    def __column(self, name: str) -> Column:
+        return self._model.column(name)
 
     def __clone(self) -> Query:
         query = self.__class__(self._model)
