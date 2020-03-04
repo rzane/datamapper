@@ -4,6 +4,9 @@ from datamapper.model import Model, Association
 
 
 class BelongsTo(Association):
+    def values(self, record: Model) -> dict:
+        return {self.foreign_key: getattr(record, self.primary_key)}
+
     def query(self, parents: List[Model]) -> Query:
         values = [getattr(r, self.foreign_key) for r in parents]
         where = {self.primary_key: values}

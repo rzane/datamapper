@@ -103,6 +103,9 @@ class Model(metaclass=ModelMeta):
             self.attributes[key] = value
         elif key in self.__associations__:
             self.__loaded_associations[key] = value
+
+            for k, v in self.__associations__[key].values(value).items():
+                self.attributes[k] = v
         else:
             super().__setattr__(key, value)
 
@@ -132,8 +135,11 @@ class Association:
             self._model = getattr(import_module(mod), name)
         return cast(Type[Model], self._model)
 
+    def values(self, record: Model) -> dict:
+        return {}
+
     def query(self, parents: List[Model]) -> Queryable:
-        ...
+        raise NotImplementedError()
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        ...
+        raise NotImplementedError()

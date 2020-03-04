@@ -24,6 +24,20 @@ def test_getattr_association():
     assert user.home == home
 
 
+def test_setattr():
+    user = User()
+    user.name = "Ray"
+    assert user.name == "Ray"
+
+
+def test_setattr_belongs_to():
+    user = User(id=99)
+    home = Home()
+    home.owner = user
+    assert home.owner == user
+    assert home.owner_id == user.id
+
+
 def test_getattr_association_not_loaded():
     with pytest.raises(NotLoadedError):
         User().home
