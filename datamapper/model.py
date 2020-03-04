@@ -20,18 +20,18 @@ class ModelMeta(ABCMeta):
         columns = []
         attributes = {}
         associations = {}
-        for name, attr in list(attrs.items()):
+        for key, attr in list(attrs.items()):
             if isinstance(attr, Column):
                 if attr.name is None:
-                    attr.name = name
+                    attr.name = key
 
-                attributes[name] = attr
+                attributes[key] = attr
                 columns.append(attr)
-                attrs.pop(name)
+                attrs.pop(key)
 
             if isinstance(attr, Association):
-                associations[name] = attr
-                attrs.pop(name)
+                associations[key] = attr
+                attrs.pop(key)
 
         model = super(ModelMeta, cls).__new__(cls, name, bases, attrs)  # type: ignore
         model.__table__ = Table(model.__tablename__, model.__metadata__, *columns)
@@ -79,30 +79,40 @@ class Model(metaclass=ModelMeta):
         return cls.__associations__[name]
 
     def __init__(self, **attributes: Any):
-        self._attributes: dict = attributes
-        self._associations: dict = {}
+        for key in attributes.keys():
+            if key not in self.__attributes__:
+                self.__raise_invalid_attribute(key)
+
+        self.attributes: dict = attributes
+        self.__loaded_associations: dict = {}
 
     def __getattr__(self, key: str) -> Any:
         if key in self.__attributes__:
-            return self._attributes.get(key)
+            return self.attributes.get(key)
         elif key in self.__associations__:
-            if key not in self._associations:
-                raise NotLoadedError(
-                    f"Association '{key}' is not loaded for model '{self.__class__.__name__}'"
-                )
-            return self._associations[key]
+            if key not in self.__loaded_associations:
+                self.__raise_not_loaded(key)
+            return self.__loaded_associations[key]
         else:
-            raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute '{key}'"
-            )
+            self.__raise_invalid_attribute(key)
 
     def __setattr__(self, key: str, value: Any) -> None:
         if key in self.__attributes__:
-            self._attributes[key] = value
+            self.attributes[key] = value
         elif key in self.__associations__:
-            self._associations[key] = value
+            self.__loaded_associations[key] = value
         else:
             super().__setattr__(key, value)
+
+    def __raise_not_loaded(self, key: str) -> None:
+        raise NotLoadedError(
+            f"Association '{key}' is not loaded for model '{self.__class__.__name__}'"
+        )
+
+    def __raise_invalid_attribute(self, key: str) -> None:
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{key}'"
+        )
 
 
 class Association:

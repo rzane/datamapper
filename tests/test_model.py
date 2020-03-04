@@ -5,24 +5,22 @@ from datamapper.model import Association
 from datamapper.errors import NotLoadedError
 
 
+def test_init_with_invalid_attribute():
+    with pytest.raises(AttributeError, match=r"'User'.*'invalid_attribute'"):
+        User(invalid_attribute="Foo")
+
+
 def test_getttr():
+    assert User().name is None
     assert User(name="Ray").name == "Ray"
-
-
-def test_getattr_invalid():
-    user = User(invalid_attribute="Foo")
-
-    with pytest.raises(AttributeError):
-        user.invalid_attribute
-
-    with pytest.raises(AttributeError):
-        user.missing_attribute
+    with pytest.raises(AttributeError, match=r"'User'.*'missing_attribute'"):
+        User().missing_attribute
 
 
 def test_getattr_association():
     user = User()
     home = Home()
-    user._associations["home"] = home
+    user.home = home
     assert user.home == home
 
 
