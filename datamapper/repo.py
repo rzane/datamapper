@@ -15,7 +15,7 @@ class Repo:
         return [query.deserialize(row) for row in rows]
 
     async def first(self, query: Queryable) -> Optional[Model]:
-        rows = await self.database.fetch_one(query.to_sql())
+        rows = await self.database.fetch_all(query.to_sql().limit(1))
 
         if rows:
             return query.deserialize(rows[0])
@@ -88,7 +88,7 @@ class Repo:
     async def __preload(self, parents: List[Model], preloads: dict) -> None:
         for name, subpreloads in preloads.items():
             model = parents[0].__class__
-            assoc = model.__associations__[name]
+            assoc = model.association(name)
             query = assoc.query(parents)
             children = await self.all(query)
             assoc.populate(parents, children, name)

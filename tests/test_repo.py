@@ -17,6 +17,20 @@ async def test_all():
 
 
 @pytest.mark.asyncio
+async def test_first():
+    user = await repo.first(User)
+    assert user is None
+
+    await repo.insert(User, name="Foo")
+
+    user = await repo.first(Query(User))
+    assert user.name == "Foo"
+
+    user = await repo.first(User)
+    assert user.name == "Foo"
+
+
+@pytest.mark.asyncio
 async def test_one():
     await repo.insert(User, name="Foo")
 
@@ -112,6 +126,14 @@ async def test_delete():
 @pytest.mark.asyncio
 async def test_update_all():
     await repo.insert(User, name="Foo")
+    await repo.insert(User, name="Foo")
+    await repo.update_all(User, name="Buzz")
+    assert await list_users() == ["Buzz", "Buzz"]
+
+
+@pytest.mark.asyncio
+async def test_update_all_query():
+    await repo.insert(User, name="Foo")
     await repo.insert(User, name="Bar")
     await repo.insert(User, name="Foo")
     await repo.update_all(Query(User).where(name="Foo"), name="Buzz")
@@ -120,6 +142,14 @@ async def test_update_all():
 
 @pytest.mark.asyncio
 async def test_delete_all():
+    await repo.insert(User, name="Foo")
+    await repo.insert(User, name="Bar")
+    await repo.delete_all(User)
+    assert await list_users() == []
+
+
+@pytest.mark.asyncio
+async def test_delete_all_query():
     await repo.insert(User, name="Foo")
     await repo.insert(User, name="Bar")
     await repo.insert(User, name="Foo")
@@ -148,11 +178,14 @@ async def test_preload_has_one():
 @pytest.mark.asyncio
 async def test_preload_has_many():
     user = await repo.insert(User)
-    pet = await repo.insert(Pet, owner_id=user.id)
 
+    await repo.insert(Pet, owner_id=user.id)
     await repo.preload(user, "pets")
     assert len(user.pets) == 1
-    assert user.pets[0].id == pet.id
+
+    await repo.insert(Pet, owner_id=user.id)
+    await repo.preload(user, "pets")
+    assert len(user.pets) == 2
 
 
 @pytest.mark.asyncio

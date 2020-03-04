@@ -139,7 +139,7 @@ class Association:
         return {}
 
     def query(self, parents: List[Model]) -> Queryable:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
