@@ -2,7 +2,7 @@ from typing import Any, Type, Union, List, Optional
 from databases import Database
 from datamapper.queryable import Queryable
 from datamapper.model import Model
-from datamapper.errors import NoResultsError, MultipleResultsError
+from datamapper._utils import cast_list, expand_preloads, assert_one
 from sqlalchemy import func
 
 
@@ -24,7 +24,7 @@ class Repo:
 
     async def one(self, query: Queryable) -> Model:
         rows = await self.database.fetch_all(query.to_sql())
-        _assert_one(rows)
+        assert_one(rows)
         return query.deserialize(rows[0])
 
     async def get_by(self, query: Queryable, **values: Any) -> Model:
@@ -34,8 +34,8 @@ class Repo:
             col = query.column(key)
             sql = sql.where(col == value)
 
-        rows = await self.database.fetch_all(query.to_sql())
-        _assert_one(rows)
+        rows = await self.database.fetch_all(sql)
+        assert_one(rows)
         return query.deserialize(rows[0])
 
     async def get(self, queryable: Queryable, id: Union[str, int]) -> Model:
@@ -75,31 +75,17 @@ class Repo:
         await self.database.execute(query.to_delete_sql())
 
     async def preload(
-        self, records: Union[Model, List[Model]], preloads: Union[str, List[str]],
+        self, records: Union[Model, List[Model]], preloads: List[str]
     ) -> None:
-        if not records or not preloads:
-            return
+        records = cast_list(records)
+        preloads = expand_preloads(cast_list(preloads))
+        await self.__preload(records, preloads)
 
-        if not isinstance(records, list):
-            records = [records]
-
-        if not isinstance(preloads, list):
-            preloads = [preloads]
-
-        # FIXME: Avoid loading an association twice
-        for preload in preloads:
-            parents = records
-            for name in preload.split("."):
-                assoc = parents[0].__associations__[name]
-                query = assoc.query(parents)
-                children = await self.all(query)
-                assoc.populate(parents, children, name)
-                parents = children
-
-
-def _assert_one(rows: list) -> None:
-    if not rows:
-        raise NoResultsError()
-
-    if len(rows) > 1:
-        raise MultipleResultsError(f"Expected at most one result, got {len(rows)}")
+    async def __preload(self, parents: List[Model], preloads: dict) -> None:
+        for name, subpreloads in preloads.items():
+            model = parents[0].__class__
+            assoc = model.__associations__[name]
+            query = assoc.query(parents)
+            children = await self.all(query)
+            assoc.populate(parents, children, name)
+            await self.__preload(children, subpreloads)

@@ -4,11 +4,6 @@ from datamapper import Query
 from tests.support import User, to_sql
 
 
-def test_model():
-    query = Query(User)
-    assert query.model == User
-
-
 def test_to_sql():
     query = Query(User)
     assert isinstance(query.to_sql(), Select)

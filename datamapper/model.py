@@ -62,11 +62,22 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def column(cls, name: str) -> Column:
+        assert (
+            name in cls.__attributes__
+        ), f"Attribute '{name}' does not exist for model '{cls.__name__}'"
         return cls.__attributes__[name]
 
     @classmethod
     def deserialize(cls, row: Mapping) -> "Model":
         return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
+
+    @classmethod
+    def association(cls, name: str) -> "Association":
+        assert (
+            name in cls.__associations__
+        ), f"Association '{name}' does not exist for model '{cls.__name__}'"
+
+        return cls.__associations__[name]
 
     def __init__(self, **attributes: Any):
         self._attributes: dict = attributes
@@ -80,10 +91,12 @@ class Model(metaclass=ModelMeta):
                 return self._associations[key]
             else:
                 raise NotLoadedError(
-                    f"Association '{key}' is not loaded for model '{self.__class__}'"
+                    f"Association '{key}' is not loaded for model '{self.__class__.__name__}'"
                 )
         else:
-            raise AttributeError(f"'{self.__class__}' object has no attribute '{key}'")
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{key}'"
+            )
 
 
 class Association:
