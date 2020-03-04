@@ -101,7 +101,7 @@ class Query:
 
         return sql
 
-    def __clone(self) -> "Query":
+    def __clone(self) -> Query:
         query = self.__class__(self._model)
         query._where = self._where
         query._limit = self._limit
