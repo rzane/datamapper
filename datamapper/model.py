@@ -76,7 +76,6 @@ class Model(metaclass=ModelMeta):
         assert (
             name in cls.__associations__
         ), f"Association '{name}' does not exist for model '{cls.__name__}'"
-
         return cls.__associations__[name]
 
     def __init__(self, **attributes: Any):
@@ -87,16 +86,23 @@ class Model(metaclass=ModelMeta):
         if key in self.__attributes__:
             return self._attributes.get(key)
         elif key in self.__associations__:
-            if key in self._associations:
-                return self._associations[key]
-            else:
+            if key not in self._associations:
                 raise NotLoadedError(
                     f"Association '{key}' is not loaded for model '{self.__class__.__name__}'"
                 )
+            return self._associations[key]
         else:
             raise AttributeError(
                 f"'{self.__class__.__name__}' object has no attribute '{key}'"
             )
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        if key in self.__attributes__:
+            self._attributes[key] = value
+        elif key in self.__associations__:
+            self._associations[key] = value
+        else:
+            super().__setattr__(key, value)
 
 
 class Association:

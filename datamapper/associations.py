@@ -15,7 +15,7 @@ class BelongsTo(Association):
             lookup[getattr(child, self.primary_key)] = child
         for parent in parents:
             key = getattr(parent, self.foreign_key)
-            parent._associations[name] = lookup.get(key)
+            setattr(parent, name, lookup.get(key))
 
 
 class HasOne(Association):
@@ -30,7 +30,7 @@ class HasOne(Association):
             lookup[getattr(child, self.foreign_key)] = child
         for parent in parents:
             key = getattr(parent, self.primary_key)
-            parent._associations[name] = lookup.get(key)
+            setattr(parent, name, lookup.get(key))
 
 
 class HasMany(Association):
@@ -49,4 +49,4 @@ class HasMany(Association):
                 lookup[key] = [child]
         for parent in parents:
             key = getattr(parent, self.primary_key)
-            parent._associations[name] = lookup.get(key, [])
+            setattr(parent, name, lookup.get(key, []))

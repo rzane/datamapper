@@ -58,7 +58,8 @@ class Repo:
         sql = sql.where(pk == record.id)
         sql = sql.values(**values)
         await self.database.execute(sql)
-        record._attributes.update(**values)
+        for key, value in values.items():
+            setattr(record, key, value)
         return record
 
     async def delete(self, record: Model, **values: Any) -> Model:
