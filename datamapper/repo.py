@@ -1,48 +1,44 @@
-from typing import Any, Type, Union, List, Optional
+from typing import Any, Type, Union, List, Optional, Protocol
 from sqlalchemy import func
 from databases import Database
-from datamapper.queryable import Queryable
+from datamapper.query import Query
 from datamapper.model import Model
 from datamapper._utils import cast_list, expand_preloads, assert_one, collect_sql_values
+
+
+class Queryable(Protocol):
+    def to_query(self) -> Query:
+        ...  # pragma: no cover
 
 
 class Repo:
     def __init__(self, database: Database):
         self.database = database
 
-    async def all(self, query: Queryable) -> List[Model]:
+    async def all(self, queryable: Queryable) -> List[Model]:
+        query = queryable.to_query()
         rows = await self.database.fetch_all(query.to_sql())
         return [query.deserialize(row) for row in rows]
 
-    async def first(self, query: Queryable) -> Optional[Model]:
-        rows = await self.database.fetch_all(query.to_sql().limit(1))
+    async def first(self, queryable: Queryable) -> Optional[Model]:
+        query = queryable.to_query().limit(1)
+        rows = await self.database.fetch_all(query.to_sql())
+        return query.deserialize(rows[0]) if rows else None
 
-        if rows:
-            return query.deserialize(rows[0])
-        else:
-            return None
-
-    async def one(self, query: Queryable) -> Model:
+    async def one(self, queryable: Queryable) -> Model:
+        query = queryable.to_query()
         rows = await self.database.fetch_all(query.to_sql())
         assert_one(rows)
         return query.deserialize(rows[0])
 
-    async def get_by(self, query: Queryable, **values: Any) -> Model:
-        sql = query.to_sql()
-
-        for key, value in values.items():
-            col = query.column(key)
-            sql = sql.where(col == value)
-
-        rows = await self.database.fetch_all(sql)
-        assert_one(rows)
-        return query.deserialize(rows[0])
+    async def get_by(self, queryable: Queryable, **values: Any) -> Model:
+        return await self.one(queryable.to_query().where(**values))
 
     async def get(self, queryable: Queryable, id: Union[str, int]) -> Model:
-        return await self.get_by(queryable, id=id)
+        return await self.one(queryable.to_query().where(id=id))
 
-    async def count(self, query: Queryable) -> int:
-        sql = query.to_sql()
+    async def count(self, queryable: Queryable) -> int:
+        sql = queryable.to_query().to_sql()
         sql = sql.alias("subquery_for_count")
         sql = func.count().select().select_from(sql)
         return await self.database.fetch_val(sql)
@@ -72,11 +68,16 @@ class Repo:
         await self.database.execute(sql)
         return record
 
-    async def update_all(self, query: Queryable, **values: Any) -> None:
-        await self.database.execute(query.to_update_sql().values(**values))
+    async def update_all(self, queryable: Queryable, **values: Any) -> None:
+        query = queryable.to_query()
+        sql = query.to_update_sql()
+        sql = sql.values(**values)
+        await self.database.execute(sql)
 
-    async def delete_all(self, query: Queryable) -> None:
-        await self.database.execute(query.to_delete_sql())
+    async def delete_all(self, queryable: Queryable) -> None:
+        query = queryable.to_query()
+        sql = query.to_delete_sql()
+        await self.database.execute(sql)
 
     async def preload(
         self, records: Union[Model, List[Model]], preloads: List[str]
@@ -89,7 +90,7 @@ class Repo:
         for name, subpreloads in preloads.items():
             model = parents[0].__class__
             assoc = model.association(name)
-            query = assoc.query(parents)
+            query = assoc.to_query(parents)
             children = await self.all(query)
             assoc.populate(parents, children, name)
             await self.__preload(children, subpreloads)

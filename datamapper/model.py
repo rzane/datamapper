@@ -1,10 +1,9 @@
+import datamapper.query as query
+import datamapper.errors as errors
 from abc import ABCMeta
 from importlib import import_module
-from typing import Any, Sequence, Mapping, Union, Type, List, cast
+from typing import Any, Sequence, Mapping, Dict, Union, Type, List, cast
 from sqlalchemy import Table, Column, MetaData
-from sqlalchemy.sql.expression import Select, Update, Delete
-from datamapper.errors import NotLoadedError
-from datamapper.queryable import Queryable
 
 
 class ModelMeta(ABCMeta):
@@ -49,16 +48,12 @@ class Model(metaclass=ModelMeta):
     __associations__: Mapping[str, "Association"]
 
     @classmethod
-    def to_sql(cls) -> Select:
-        return cls.__table__.select()
+    def to_query(cls) -> query.Query:
+        return query.Query(cls)
 
     @classmethod
-    def to_update_sql(cls) -> Update:
-        return cls.__table__.update()
-
-    @classmethod
-    def to_delete_sql(cls) -> Delete:
-        return cls.__table__.delete()
+    def deserialize(cls, row: Mapping) -> "Model":
+        return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
     @classmethod
     def column(cls, name: str) -> Column:
@@ -66,10 +61,6 @@ class Model(metaclass=ModelMeta):
             name in cls.__attributes__
         ), f"Attribute '{name}' does not exist for model '{cls.__name__}'"
         return cls.__attributes__[name]
-
-    @classmethod
-    def deserialize(cls, row: Mapping) -> "Model":
-        return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
     @classmethod
     def association(cls, name: str) -> "Association":
@@ -110,7 +101,7 @@ class Model(metaclass=ModelMeta):
             super().__setattr__(key, value)
 
     def __raise_not_loaded(self, key: str) -> None:
-        raise NotLoadedError(
+        raise errors.NotLoadedError(
             f"Association '{key}' is not loaded for model '{self.__class__.__name__}'"
         )
 
@@ -138,8 +129,60 @@ class Association:
     def values(self, record: Model) -> dict:
         return {}
 
-    def query(self, parents: List[Model]) -> Queryable:
+    def to_query(self, parents: List[Model]) -> query.Query:
         raise NotImplementedError()  # pragma: no cover
 
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         raise NotImplementedError()  # pragma: no cover
+
+
+class BelongsTo(Association):
+    def values(self, record: Model) -> dict:
+        return {self.foreign_key: getattr(record, self.primary_key)}
+
+    def to_query(self, parents: List[Model]) -> query.Query:
+        values = [getattr(r, self.foreign_key) for r in parents]
+        where = {self.primary_key: values}
+        return query.Query(self.model).where(**where)
+
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
+        lookup: Dict[Any, Model] = {}
+        for child in children:
+            lookup[getattr(child, self.primary_key)] = child
+        for parent in parents:
+            key = getattr(parent, self.foreign_key)
+            setattr(parent, name, lookup.get(key))
+
+
+class HasOne(Association):
+    def to_query(self, parents: List[Model]) -> query.Query:
+        values = [getattr(r, self.primary_key) for r in parents]
+        where = {self.foreign_key: values}
+        return self.model.to_query().where(**where)
+
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
+        lookup: Dict[Any, Model] = {}
+        for child in children:
+            lookup[getattr(child, self.foreign_key)] = child
+        for parent in parents:
+            key = getattr(parent, self.primary_key)
+            setattr(parent, name, lookup.get(key))
+
+
+class HasMany(Association):
+    def to_query(self, parents: List[Model]) -> query.Query:
+        values = [getattr(r, self.primary_key) for r in parents]
+        where = {self.foreign_key: values}
+        return self.model.to_query().where(**where)
+
+    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
+        lookup: Dict[Any, List[Model]] = {}
+        for child in children:
+            key = getattr(child, self.foreign_key)
+            if key in lookup:
+                lookup[key].append(child)
+            else:
+                lookup[key] = [child]
+        for parent in parents:
+            key = getattr(parent, self.primary_key)
+            setattr(parent, name, lookup.get(key, []))

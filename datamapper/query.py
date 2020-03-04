@@ -1,22 +1,26 @@
+from __future__ import annotations
+import datamapper.model as model
 from typing import Any, List, Mapping, Union, Optional, Type
-from datamapper.model import Model
 from sqlalchemy import and_, Column
 from sqlalchemy.sql.expression import ClauseElement, ClauseList, Select, Update, Delete
 
 
 class Query:
-    _model: Type[Model]
+    _model: Type[model.Model]
     _where: Optional[ClauseList]
     _limit: Optional[int]
     _offset: Optional[int]
     _order_by: List[str]
 
-    def __init__(self, model: Type[Model]):
+    def __init__(self, model: Type[model.Model]):
         self._model = model
         self._limit = None
         self._offset = None
         self._where = None
         self._order_by = []
+
+    def to_query(self) -> Query:
+        return self
 
     def to_sql(self) -> Select:
         return self.__build_query(self._model.__table__.select())
@@ -30,20 +34,20 @@ class Query:
     def column(self, name: str) -> Column:
         return self._model.column(name)
 
-    def deserialize(self, row: Mapping) -> "Model":
+    def deserialize(self, row: Mapping) -> model.Model:
         return self._model.deserialize(row)
 
-    def limit(self, value: int) -> "Query":
+    def limit(self, value: int) -> Query:
         query = self.__clone()
         query._limit = value
         return query
 
-    def offset(self, value: int) -> "Query":
+    def offset(self, value: int) -> Query:
         query = self.__clone()
         query._offset = value
         return query
 
-    def where(self, *args: List[ClauseElement], **kwargs: Any) -> "Query":
+    def where(self, *args: List[ClauseElement], **kwargs: Any) -> Query:
         exprs = []
 
         for arg in args:
@@ -65,7 +69,7 @@ class Query:
             query._where = and_(query._where, *exprs)
         return query
 
-    def order_by(self, *args: Union[str, ClauseElement]) -> "Query":
+    def order_by(self, *args: Union[str, ClauseElement]) -> Query:
         exprs = []
 
         for arg in args:

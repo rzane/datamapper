@@ -1,7 +1,6 @@
-from datamapper.model import Model
+from datamapper.model import Model, BelongsTo, HasOne, HasMany
 from datamapper.query import Query
 from datamapper.repo import Repo
-from datamapper.associations import BelongsTo, HasOne, HasMany
 from datamapper.errors import (
     Error,
     NotLoadedError,

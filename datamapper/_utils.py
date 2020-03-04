@@ -1,6 +1,6 @@
+import datamapper.errors as errors
+import datamapper.model as model
 from typing import TypeVar, List, Union, Type
-from datamapper.errors import NoResultsError, MultipleResultsError
-from datamapper.model import Model
 
 T = TypeVar("T")
 
@@ -11,10 +11,12 @@ def assert_one(values: list) -> None:
     """
 
     if not values:
-        raise NoResultsError()
+        raise errors.NoResultsError()
 
     if len(values) > 1:
-        raise MultipleResultsError(f"Expected at most one result, got {len(values)}")
+        raise errors.MultipleResultsError(
+            f"Expected at most one result, got {len(values)}"
+        )
 
 
 def cast_list(value: Union[T, List[T]]) -> List[T]:
@@ -45,7 +47,9 @@ def expand_preloads(paths: List[str]) -> dict:
     return result
 
 
-def collect_sql_values(model: Union[Model, Type[Model]], values: dict) -> dict:
+def collect_sql_values(
+    model: Union[model.Model, Type[model.Model]], values: dict
+) -> dict:
     """
     Convert attributes and association values to values that will be stored
     in the database.
