@@ -50,21 +50,17 @@ class Repo:
         return model(id=record_id, **values)
 
     async def update(self, record: Model, **values: Any) -> Model:
-        pk = record.__attributes__["id"]
+        query = record.to_query()
         sql_values = collect_sql_values(record, values)
-        sql = record.__table__.update()
-        sql = sql.where(pk == record.id)
-        sql = sql.values(**sql_values)
+        sql = query.to_update_sql().values(**sql_values)
         await self.database.execute(sql)
         for key, value in values.items():
             setattr(record, key, value)
-
         return record
 
     async def delete(self, record: Model, **values: Any) -> Model:
-        pk = record.__attributes__["id"]
-        sql = record.__table__.delete()
-        sql = sql.where(pk == record.id)
+        query = record.to_query()
+        sql = query.to_delete_sql()
         await self.database.execute(sql)
         return record
 

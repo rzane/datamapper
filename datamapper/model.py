@@ -1,9 +1,11 @@
+from __future__ import annotations
 import datamapper.query as query
 import datamapper.errors as errors
 from abc import ABCMeta
 from importlib import import_module
 from typing import Any, Sequence, Mapping, Dict, Union, Type, List, cast
 from sqlalchemy import Table, Column, MetaData
+from sqlalchemy.ext.hybrid import hybrid_method
 
 
 class ModelMeta(ABCMeta):
@@ -21,8 +23,6 @@ class ModelMeta(ABCMeta):
         associations = {}
         for key, attr in list(attrs.items()):
             if isinstance(attr, Column):
-                if attr.key is None:
-                    attr.key = key
                 if attr.name is None:
                     attr.name = key
 
@@ -50,11 +50,7 @@ class Model(metaclass=ModelMeta):
     __associations__: Mapping[str, "Association"]
 
     @classmethod
-    def to_query(cls) -> query.Query:
-        return query.Query(cls)
-
-    @classmethod
-    def deserialize(cls, row: Mapping) -> "Model":
+    def deserialize(cls, row: Mapping) -> Model:
         return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
     @classmethod
@@ -65,11 +61,18 @@ class Model(metaclass=ModelMeta):
         return cls.__attributes__[name]
 
     @classmethod
-    def association(cls, name: str) -> "Association":
+    def association(cls, name: str) -> Association:
         assert (
             name in cls.__associations__
         ), f"Association '{name}' does not exist for model '{cls.__name__}'"
         return cls.__associations__[name]
+
+    @hybrid_method
+    def to_query(binding: Union[Type[Model], Model]) -> query.Query:
+        if isinstance(binding, type):
+            return query.Query(binding)
+        else:
+            return query.Query(binding.__class__).where(id=binding.id)
 
     def __init__(self, **attributes: Any):
         self.attributes: dict = {}
