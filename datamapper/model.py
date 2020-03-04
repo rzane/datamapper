@@ -79,12 +79,14 @@ class Model(metaclass=ModelMeta):
         return cls.__associations__[name]
 
     def __init__(self, **attributes: Any):
-        for key in attributes.keys():
-            if key not in self.__attributes__:
-                self.__raise_invalid_attribute(key)
-
-        self.attributes: dict = attributes
+        self.attributes: dict = {}
         self.__loaded_associations: dict = {}
+
+        for key, value in attributes.items():
+            if key in self.__attributes__ or key in self.__associations__:
+                setattr(self, key, value)
+            else:
+                self.__raise_invalid_attribute(key)
 
     def __getattr__(self, key: str) -> Any:
         if key in self.__attributes__:
