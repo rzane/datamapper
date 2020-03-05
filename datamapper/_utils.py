@@ -1,6 +1,6 @@
 import datamapper.errors as errors
 import datamapper.model as model
-from typing import TypeVar, List, Union, Type, Tuple
+from typing import TypeVar, List, Union, Type
 
 T = TypeVar("T")
 

@@ -166,7 +166,9 @@ class BelongsTo(Association):
             key = getattr(parent, self.foreign_key)
             setattr(parent, name, lookup.get(key))
 
-    def join(self, parent: Model, outer: bool = False, full: bool = False) -> Join:
+    def join(
+        self, parent: Type[Model], outer: bool = False, full: bool = False
+    ) -> Join:
         return join(
             parent.__table__,
             self.model.__table__,
