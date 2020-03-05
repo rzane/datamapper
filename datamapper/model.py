@@ -5,6 +5,7 @@ from abc import ABCMeta
 from importlib import import_module
 from typing import Any, Sequence, Mapping, Dict, Union, Type, List, cast
 from sqlalchemy import Table, Column, MetaData
+from sqlalchemy.sql.expression import Join, join
 from sqlalchemy.ext.hybrid import hybrid_method
 
 
@@ -142,6 +143,11 @@ class Association:
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         raise NotImplementedError()  # pragma: no cover
 
+    def join(
+        self, parent: Type[Model], outer: bool = False, full: bool = False
+    ) -> Join:
+        raise NotImplementedError()  # pragma: no cover
+
 
 class BelongsTo(Association):
     def values(self, record: Model) -> dict:
@@ -160,13 +166,35 @@ class BelongsTo(Association):
             key = getattr(parent, self.foreign_key)
             setattr(parent, name, lookup.get(key))
 
+    def join(self, parent: Model, outer: bool = False, full: bool = False) -> Join:
+        return join(
+            parent.__table__,
+            self.model.__table__,
+            parent.column(self.foreign_key) == self.model.column(self.primary_key),
+            isouter=outer,
+            full=full,
+        )
 
-class HasOne(Association):
+
+class HasAssociation(Association):
     def to_query(self, parents: List[Model]) -> query.Query:
         values = [getattr(r, self.primary_key) for r in parents]
         where = {self.foreign_key: values}
         return self.model.to_query().where(**where)
 
+    def join(
+        self, parent: Type[Model], outer: bool = False, full: bool = False
+    ) -> Join:
+        return join(
+            parent.__table__,
+            self.model.__table__,
+            self.model.column(self.primary_key) == parent.column(self.primary_key),
+            isouter=outer,
+            full=full,
+        )
+
+
+class HasOne(HasAssociation):
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         lookup: Dict[Any, Model] = {}
         for child in children:
@@ -176,12 +204,7 @@ class HasOne(Association):
             setattr(parent, name, lookup.get(key))
 
 
-class HasMany(Association):
-    def to_query(self, parents: List[Model]) -> query.Query:
-        values = [getattr(r, self.primary_key) for r in parents]
-        where = {self.foreign_key: values}
-        return self.model.to_query().where(**where)
-
+class HasMany(HasOne):
     def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
         lookup: Dict[Any, List[Model]] = {}
         for child in children:

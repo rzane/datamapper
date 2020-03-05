@@ -59,3 +59,31 @@ def test_order_by_desc():
 def test_order_by_literal():
     query = Query(User).order_by(text("1"))
     assert "ORDER BY 1" in to_sql(query.to_sql())
+
+
+def test_preload():
+    query = Query(User).preload("home")
+    assert query.preloads == ["home"]
+
+
+def test_join():
+    query = Query(User).join("home")
+    assert "JOIN homes ON homes.id = users.id" in to_sql(query.to_sql())
+
+
+def test_join_outer():
+    query = Query(User).join("home", outer=True)
+    assert "OUTER JOIN homes ON homes.id = users.id" in to_sql(query.to_sql())
+
+
+def test_join_full():
+    query = Query(User).join("home", full=True)
+    assert "FULL OUTER JOIN homes ON homes.id = users.id" in to_sql(query.to_sql())
+
+
+def test_join_nested():
+    query = Query(User).join("home").join("home.owner").join("home.owner.pets")
+    sql = to_sql(query.to_sql())
+    assert "JOIN homes ON homes.id = users.id" in sql
+    assert "JOIN users ON homes.owner_id = users.id" in sql
+    assert "JOIN pets ON pets.id = users.id" in sql
