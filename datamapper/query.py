@@ -101,7 +101,7 @@ class Query:
         return query
 
     def join(self, path: str, outer: bool = False, full: bool = False) -> Query:
-        assoc = _locate_association(self._model, path)
+        assoc = _resolve_association(self._model, path)
         related_key = assoc.related.column(assoc.related_key)
         owner_key = assoc.owner.column(assoc.owner_key)
         value = join(
@@ -149,7 +149,7 @@ class Query:
         return query
 
 
-def _locate_association(owner: Type[model.Model], path: str) -> model.Association:
+def _resolve_association(owner: Type[model.Model], path: str) -> model.Association:
     keys = path.split(".")
     last = keys.pop()
     for key in keys:
