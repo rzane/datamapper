@@ -2,7 +2,7 @@ from typing import Any, Type, Union, List, Optional, Protocol
 from sqlalchemy import func
 from databases import Database
 from datamapper.query import Query
-from datamapper.model import Model
+from datamapper.model import Model, Cardinality
 from datamapper._utils import cast_list, expand_preloads, assert_one, collect_sql_values
 
 
@@ -86,11 +86,29 @@ class Repo:
         preloads = expand_preloads(cast_list(preloads))
         await self.__preload(records, preloads)
 
-    async def __preload(self, parents: List[Model], preloads: dict) -> None:
+    async def __preload(self, owners: List[Model], preloads: dict) -> None:
         for name, subpreloads in preloads.items():
-            model = parents[0].__class__
+            model = owners[0].__class__
             assoc = model.association(name)
-            query = assoc.to_query(parents)
-            children = await self.all(query)
-            assoc.populate(parents, children, name)
-            await self.__preload(children, subpreloads)
+
+            values = [getattr(r, assoc.owner_key) for r in owners]
+            where = {assoc.related_key: values}
+            query = Query(assoc.related).where(**where)
+            relateds = await self.all(query)
+
+            lookup: dict = {}
+            for related in relateds:
+                key = getattr(related, assoc.related_key)
+                if assoc.cardinality == Cardinality.ONE:
+                    lookup[key] = related
+                elif key in lookup:
+                    lookup[key].append(related)
+                else:
+                    lookup[key] = [related]
+            for owner in owners:
+                key = getattr(owner, assoc.owner_key)
+                if assoc.cardinality == Cardinality.ONE:
+                    setattr(owner, name, lookup.get(key, None))
+                else:
+                    setattr(owner, name, lookup.get(key, []))
+            await self.__preload(relateds, subpreloads)

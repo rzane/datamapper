@@ -1,6 +1,6 @@
 from __future__ import annotations
 import datamapper.model as model
-from typing import Any, List, Mapping, Union, Optional, Type, Tuple
+from typing import Any, List, Mapping, Union, Optional, Type
 from sqlalchemy import and_, Column
 from sqlalchemy.sql.expression import (
     ClauseElement,
@@ -9,6 +9,7 @@ from sqlalchemy.sql.expression import (
     Update,
     Delete,
     Join,
+    join,
 )
 
 
@@ -100,10 +101,19 @@ class Query:
         return query
 
     def join(self, path: str, outer: bool = False, full: bool = False) -> Query:
-        model, assoc = _locate_association(self._model, path)
-        join = assoc.join(model, outer=outer, full=full)
+        assoc = _locate_association(self._model, path)
+        related_key = assoc.related.column(assoc.related_key)
+        owner_key = assoc.owner.column(assoc.owner_key)
+        value = join(
+            assoc.owner.__table__,
+            assoc.related.__table__,
+            related_key == owner_key,
+            isouter=outer,
+            full=full,
+        )
+
         query = self.__clone()
-        query._joins = query._joins + [join]
+        query._joins = query._joins + [value]
         return query
 
     def __build_query(self, sql: ClauseElement) -> ClauseElement:
@@ -139,12 +149,10 @@ class Query:
         return query
 
 
-def _locate_association(
-    parent: Type[model.Model], path: str
-) -> Tuple[Type[model.Model], model.Association]:
+def _locate_association(owner: Type[model.Model], path: str) -> model.Association:
     keys = path.split(".")
     last = keys.pop()
     for key in keys:
-        assoc = parent.association(key)
-        parent = assoc.model
-    return (parent, parent.association(last))
+        assoc = owner.association(key)
+        owner = assoc.related
+    return owner.association(last)

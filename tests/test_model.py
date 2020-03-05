@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import Column, Table
 from tests.support import metadata, User, Home
-from datamapper.model import Association
+from datamapper.model import BelongsTo, HasOne, HasMany, Cardinality
 from datamapper.errors import NotLoadedError
 
 
@@ -55,14 +55,33 @@ def test_table():
     assert User.__table__.metadata == metadata
 
 
-def test_association():
-    assoc = Association(User, "user_id")
-    assert assoc.model == User
-    assert assoc.foreign_key == "user_id"
-    assert assoc.primary_key == "id"
+def test_belongs_to():
+    assoc = BelongsTo(User, "user_id")
+    assert assoc.related == User
+    assert assoc.owner_key == "user_id"
+    assert assoc.related_key == "id"
+    assert assoc.cardinality == Cardinality.ONE
+    assert assoc.values(User(id=9)) == {"user_id": 9}
 
 
-def test_model_as_string():
-    assoc = Association("tests.support.User", "user_id")
-    assert assoc.model == User
-    assert assoc.primary_key == "id"
+def test_has_one():
+    assoc = HasOne(User, "user_id")
+    assert assoc.related == User
+    assert assoc.owner_key == "id"
+    assert assoc.related_key == "user_id"
+    assert assoc.cardinality == Cardinality.ONE
+    assert assoc.values(User(id=9)) == {}
+
+
+def test_has_many():
+    assoc = HasMany(User, "user_id")
+    assert assoc.related == User
+    assert assoc.owner_key == "id"
+    assert assoc.related_key == "user_id"
+    assert assoc.cardinality == Cardinality.MANY
+    assert assoc.values(User(id=9)) == {}
+
+
+def test_assoc_related_to_string():
+    assoc = BelongsTo("tests.support.User", "user_id")
+    assert assoc.related == User

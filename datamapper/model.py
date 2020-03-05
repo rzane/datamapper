@@ -1,11 +1,11 @@
 from __future__ import annotations
 import datamapper.query as query
 import datamapper.errors as errors
+from enum import Enum
 from abc import ABCMeta
 from importlib import import_module
-from typing import Any, Sequence, Mapping, Dict, Union, Type, List, cast
+from typing import Any, Sequence, Mapping, Union, Type, cast
 from sqlalchemy import Table, Column, MetaData
-from sqlalchemy.sql.expression import Join, join
 from sqlalchemy.ext.hybrid import hybrid_method
 
 
@@ -41,6 +41,10 @@ class ModelMeta(ABCMeta):
         model.__table__ = Table(model.__tablename__, model.__metadata__, *columns)
         model.__attributes__ = attributes
         model.__associations__ = associations
+
+        for key, assoc in model.__associations__.items():
+            assoc.name = key
+            assoc.owner = model
 
         return model
 
@@ -103,8 +107,10 @@ class Model(metaclass=ModelMeta):
         elif key in self.__associations__:
             self.__loaded_associations[key] = value
 
-            for k, v in self.__associations__[key].values(value).items():
-                self.attributes[k] = v
+            assoc = self.__associations__[key]
+            if isinstance(assoc, BelongsTo):
+                related_key = getattr(value, assoc.related_key)
+                self.attributes[assoc.owner_key] = related_key
         else:
             super().__setattr__(key, value)
 
@@ -119,102 +125,61 @@ class Model(metaclass=ModelMeta):
         )
 
 
+class Cardinality(Enum):
+    ONE = "one"
+    MANY = "many"
+
+
 class Association:
+    name: str
+    owner: Type[Model]
+    cardinality: Cardinality = Cardinality.ONE
+
     def __init__(
-        self, model: Union[str, Type[Model]], foreign_key: str, primary_key: str = "id"
+        self,
+        related: Union[str, Type[Model]],
+        foreign_key: str,
+        primary_key: str = "id",
     ):
-        self._model = model
-        self.foreign_key = foreign_key
-        self.primary_key = primary_key
+        self._related = related
+        self._foreign_key = foreign_key
+        self._primary_key = primary_key
 
     @property
-    def model(self) -> Type[Model]:
-        if isinstance(self._model, str):
-            mod, name = self._model.rsplit(".", 1)
-            self._model = getattr(import_module(mod), name)
-        return cast(Type[Model], self._model)
+    def related(self) -> Type[Model]:
+        if isinstance(self._related, str):
+            mod, name = self._related.rsplit(".", 1)
+            self._related = getattr(import_module(mod), name)
+        return cast(Type[Model], self._related)
 
-    def values(self, record: Model) -> dict:
+    @property
+    def owner_key(self) -> str:
+        return self._primary_key
+
+    @property
+    def related_key(self) -> str:
+        return self._foreign_key
+
+    def values(self, value: Model) -> dict:
         return {}
-
-    def to_query(self, parents: List[Model]) -> query.Query:
-        raise NotImplementedError()  # pragma: no cover
-
-    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        raise NotImplementedError()  # pragma: no cover
-
-    def join(
-        self, parent: Type[Model], outer: bool = False, full: bool = False
-    ) -> Join:
-        raise NotImplementedError()  # pragma: no cover
 
 
 class BelongsTo(Association):
-    def values(self, record: Model) -> dict:
-        return {self.foreign_key: getattr(record, self.primary_key)}
+    @property
+    def owner_key(self) -> str:
+        return self._foreign_key
 
-    def to_query(self, parents: List[Model]) -> query.Query:
-        values = [getattr(r, self.foreign_key) for r in parents]
-        where = {self.primary_key: values}
-        return query.Query(self.model).where(**where)
+    @property
+    def related_key(self) -> str:
+        return self._primary_key
 
-    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        lookup: Dict[Any, Model] = {}
-        for child in children:
-            lookup[getattr(child, self.primary_key)] = child
-        for parent in parents:
-            key = getattr(parent, self.foreign_key)
-            setattr(parent, name, lookup.get(key))
-
-    def join(
-        self, parent: Type[Model], outer: bool = False, full: bool = False
-    ) -> Join:
-        return join(
-            parent.__table__,
-            self.model.__table__,
-            parent.column(self.foreign_key) == self.model.column(self.primary_key),
-            isouter=outer,
-            full=full,
-        )
+    def values(self, value: Model) -> dict:
+        return {self.owner_key: getattr(value, self.related_key)}
 
 
-class HasAssociation(Association):
-    def to_query(self, parents: List[Model]) -> query.Query:
-        values = [getattr(r, self.primary_key) for r in parents]
-        where = {self.foreign_key: values}
-        return self.model.to_query().where(**where)
-
-    def join(
-        self, parent: Type[Model], outer: bool = False, full: bool = False
-    ) -> Join:
-        return join(
-            parent.__table__,
-            self.model.__table__,
-            self.model.column(self.primary_key) == parent.column(self.primary_key),
-            isouter=outer,
-            full=full,
-        )
+class HasOne(Association):
+    pass
 
 
-class HasOne(HasAssociation):
-    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        lookup: Dict[Any, Model] = {}
-        for child in children:
-            lookup[getattr(child, self.foreign_key)] = child
-        for parent in parents:
-            key = getattr(parent, self.primary_key)
-            setattr(parent, name, lookup.get(key))
-
-
-class HasMany(HasOne):
-    def populate(self, parents: List[Model], children: List[Model], name: str) -> None:
-        lookup: Dict[Any, List[Model]] = {}
-        for child in children:
-            key = getattr(child, self.foreign_key)
-            if key in lookup:
-                lookup[key].append(child)
-            else:
-                lookup[key] = [child]
-        for parent in parents:
-            key = getattr(parent, self.primary_key)
-            setattr(parent, name, lookup.get(key, []))
+class HasMany(Association):
+    cardinality: Cardinality = Cardinality.MANY
