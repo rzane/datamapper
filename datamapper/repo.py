@@ -92,7 +92,7 @@ class Repo:
             assoc = model.association(name)
 
             values = [getattr(r, assoc.owner_key) for r in owners]
-            where = {assoc.related_key: values}
+            where = {f"{assoc.related_key}__in": values}
             query = Query(assoc.related).where(**where)
             preloaded = await self.all(query)
             _resolve_preloads(owners, preloaded, assoc)

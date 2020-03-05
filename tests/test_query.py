@@ -26,8 +26,8 @@ def test_where():
     assert "WHERE users.id = 1" in to_sql(query.to_sql())
 
 
-def test_where_list():
-    query = Query(User).where(id=[1, 2])
+def test_where_in():
+    query = Query(User).where(id__in=[1, 2])
     assert "WHERE users.id IN (1, 2)" in to_sql(query.to_sql())
 
 
@@ -44,6 +44,28 @@ def test_consecutive_where():
 def test_where_literal():
     query = Query(User).where(text("users.id = 7"))
     assert "WHERE users.id = 7" in to_sql(query.to_sql())
+
+
+def test_where_with_join():
+    query = Query(User).where(home__id=9)
+    sql = to_sql(query.to_sql())
+
+    assert "JOIN homes AS home ON home.owner_id = users.id" in sql
+    assert "WHERE home.id = 9" in sql
+
+
+# TODO I'm actually not sure if this query is right?
+def test_where_with_nested_join():
+    query = Query(User).where(home__owner__pets__id=9)
+    sql = to_sql(query.to_sql())
+
+    assert "WHERE home_owner_pets.id = 9" in sql
+    assert "JOIN homes AS home ON home.owner_id = users.id" in sql
+    assert "JOIN users AS home_owner ON home_owner.id = home.owner_id" in sql
+    assert (
+        "JOIN pets AS home_owner_pets ON home_owner_pets.owner_id = home_owner.id"
+        in sql
+    )
 
 
 def test_order_by():
@@ -64,28 +86,3 @@ def test_order_by_literal():
 def test_preload():
     query = Query(User).preload("home")
     assert query.preloads == ["home"]
-
-
-def test_join():
-    query = Query(User).join("home")
-    assert "JOIN homes ON homes.owner_id = users.id" in to_sql(query.to_sql())
-
-
-def test_join_outer():
-    query = Query(User).join("home", outer=True)
-    assert "OUTER JOIN homes ON homes.owner_id = users.id" in to_sql(query.to_sql())
-
-
-def test_join_full():
-    query = Query(User).join("home", full=True)
-    assert "FULL OUTER JOIN homes ON homes.owner_id = users.id" in to_sql(
-        query.to_sql()
-    )
-
-
-def test_join_nested():
-    query = Query(User).join("home").join("home.owner").join("home.owner.pets")
-    sql = to_sql(query.to_sql())
-    assert "JOIN homes ON homes.owner_id = users.id" in sql
-    assert "JOIN users ON users.id = homes.owner_id" in sql
-    assert "JOIN pets ON pets.owner_id = users.id" in sql
