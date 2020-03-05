@@ -2,6 +2,14 @@ class Error(Exception):
     pass
 
 
+class InvalidColumnError(Error):
+    pass
+
+
+class InvalidAssociationError(Error):
+    pass
+
+
 class NoResultsError(Error):
     pass
 

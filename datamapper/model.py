@@ -62,17 +62,25 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def column(cls, name: str) -> Column:
-        assert (
-            name in cls.__attributes__
-        ), f"Attribute '{name}' does not exist for model '{cls.__name__}'"
-        return cls.__attributes__[name]
+        try:
+            return cls.__attributes__[name]
+        except KeyError:
+            model = cls.__name__
+            fields = ", ".join(cls.__attributes__.keys())
+            msg = f"Column '{name}' does not exist for model '{model}'."
+            msg += f" Valid fields are: {fields}."
+            raise errors.InvalidColumnError(msg)
 
     @classmethod
     def association(cls, name: str) -> Association:
-        assert (
-            name in cls.__associations__
-        ), f"Association '{name}' does not exist for model '{cls.__name__}'"
-        return cls.__associations__[name]
+        try:
+            return cls.__associations__[name]
+        except KeyError:
+            model = cls.__name__
+            associations = ", ".join(cls.__associations__.keys())
+            msg = f"Association '{name}' does not exist for model '{model}'."
+            msg += f" Valid associations are: {associations}."
+            raise errors.InvalidAssociationError(msg)
 
     @hybrid_method
     def to_query(binding: Union[Type[Model], Model]) -> query.Query:
