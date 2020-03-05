@@ -2,7 +2,7 @@ from typing import Any, Type, Union, List, Optional, Protocol
 from sqlalchemy import func
 from databases import Database
 from datamapper.query import Query
-from datamapper.model import Model, Cardinality
+from datamapper.model import Model, Association, Cardinality
 from datamapper._utils import cast_list, expand_preloads, assert_one, collect_sql_values
 
 
@@ -94,21 +94,26 @@ class Repo:
             values = [getattr(r, assoc.owner_key) for r in owners]
             where = {assoc.related_key: values}
             query = Query(assoc.related).where(**where)
-            relateds = await self.all(query)
+            preloaded = await self.all(query)
+            _resolve_preloads(owners, preloaded, assoc)
+            await self.__preload(preloaded, subpreloads)
 
-            lookup: dict = {}
-            for related in relateds:
-                key = getattr(related, assoc.related_key)
-                if assoc.cardinality == Cardinality.ONE:
-                    lookup[key] = related
-                elif key in lookup:
-                    lookup[key].append(related)
-                else:
-                    lookup[key] = [related]
-            for owner in owners:
-                key = getattr(owner, assoc.owner_key)
-                if assoc.cardinality == Cardinality.ONE:
-                    setattr(owner, name, lookup.get(key, None))
-                else:
-                    setattr(owner, name, lookup.get(key, []))
-            await self.__preload(relateds, subpreloads)
+
+def _resolve_preloads(
+    owners: List[Model], preloaded: List[Model], assoc: Association
+) -> None:
+    lookup: dict = {}
+    for related in preloaded:
+        key = getattr(related, assoc.related_key)
+        if assoc.cardinality == Cardinality.ONE:
+            lookup[key] = related
+        elif key in lookup:
+            lookup[key].append(related)
+        else:
+            lookup[key] = [related]
+    for owner in owners:
+        key = getattr(owner, assoc.owner_key)
+        if assoc.cardinality == Cardinality.ONE:
+            setattr(owner, assoc.name, lookup.get(key, None))
+        else:
+            setattr(owner, assoc.name, lookup.get(key, []))
