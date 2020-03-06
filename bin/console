@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-poetry run ipython
+poetry run python tests/console.py
