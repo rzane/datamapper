@@ -6,6 +6,7 @@ from datamapper import Query, Repo
 from tests.support import Home, Pet, User, database
 
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("parso").setLevel(logging.ERROR)
 
 context = {
     "database": database,
