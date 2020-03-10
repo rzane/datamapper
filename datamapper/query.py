@@ -24,7 +24,7 @@ class Query:
     _order_bys: List[str]
     _limit: Optional[int]
     _offset: Optional[int]
-    preloads: List[str]
+    _preloads: List[str]
 
     def __init__(self, model: Type[model.Model]):
         self._model = model
@@ -32,7 +32,7 @@ class Query:
         self._order_bys = []
         self._limit = None
         self._offset = None
-        self.preloads = []
+        self._preloads = []
 
     def to_query(self) -> Query:
         return self
@@ -96,7 +96,7 @@ class Query:
 
     def preload(self, preload: str) -> Query:
         query = self.__clone()
-        query.preloads = query.preloads + [preload]
+        query._preloads = query._preloads + [preload]
         return query
 
     def __build_query(self, sql: ClauseElement) -> ClauseElement:
@@ -120,7 +120,7 @@ class Query:
         query._order_bys = self._order_bys
         query._limit = self._limit
         query._offset = self._offset
-        query.preloads = self.preloads
+        query._preloads = self._preloads
         return query
 
 

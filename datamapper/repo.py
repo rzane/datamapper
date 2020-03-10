@@ -21,8 +21,8 @@ class Repo:
         rows = await self.database.fetch_all(query.to_sql())
         records = [query.deserialize(row) for row in rows]
 
-        if query.preloads:
-            await self.preload(records, query.preloads)
+        if query._preloads:
+            await self.preload(records, query._preloads)
 
         return records
 

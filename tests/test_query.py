@@ -63,4 +63,4 @@ def test_order_by_literal():
 
 def test_preload():
     query = Query(User).preload("home")
-    assert query.preloads == ["home"]
+    assert query._preloads == ["home"]
