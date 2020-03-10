@@ -38,9 +38,7 @@ def test_cast_type_check():
 
 
 def test_validate_required():
-    changeset = (
-        Changeset(User).cast({}, ["foo", "bar"]).validate_required(["foo", "bar"])
-    )
+    changeset = Changeset(User).cast({}, ["foo"]).validate_required(["foo", "bar"])
     assert changeset.errors == {
         "foo": ["Missing data for required field."],
         "bar": ["Missing data for required field."],
