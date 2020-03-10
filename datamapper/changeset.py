@@ -1,9 +1,11 @@
 from __future__ import annotations
-from typing import Any, List, Mapping, Type, Optional, Tuple
-from marshmallow import Schema, fields
+from typing import Any, List, Mapping, Type, Optional, Tuple, Callable, Union, Dict
+from marshmallow import Schema, fields, ValidationError
 import sqlalchemy
 
 from datamapper.model import Model
+
+FieldValidator = Callable[[Any], Union[bool, str]]
 
 
 class MarshmallowValidator:
@@ -50,12 +52,31 @@ class MarshmallowValidator:
 
         Attempts to map the sqlalchemy column type to the relevant field type.
         """
+
+        def wrap_validator(validator: FieldValidator) -> Callable:
+            """
+            Turn a generic validation function into a marshmallow-flavored one that
+            raises a ValidationError with the message in question.
+            """
+
+            def _validate(val: Any) -> None:
+                result = validator(val)
+                if isinstance(result, str):
+                    raise ValidationError(result)
+
+            return _validate
+
         column: Optional[Type] = self.changeset.model.__attributes__.get(name)
         field_type = (
             self._sqla_to_marshmallow(column.type) if column is not None else fields.Raw
         )
 
-        type_args = {"required": name in self.changeset.required}
+        type_args: Dict[str, Any] = {"required": name in self.changeset.required}
+
+        field_validators = self.changeset._field_validators.get(name)
+        if field_validators:
+            type_args["validate"] = [wrap_validator(v) for v in field_validators]
+
         return field_type(**type_args)
 
 
@@ -71,8 +92,10 @@ class Changeset:
         self.permitted: list = []
         self.required: set = set()
         self._evaluated = False
+        self._field_validators: Dict[str, List[FieldValidator]] = {}
+        self._schema_validators: List = []
 
-    def _update(self, **kwargs) -> Changeset:
+    def _update(self, **kwargs: Any) -> Changeset:
         # Can replace this with an immutable collection library.
         for k, v in kwargs.items():
             if hasattr(self, k):
@@ -104,6 +127,11 @@ class Changeset:
     def validate_required(self, fields: List) -> Changeset:
         for f in fields:
             self.required.add(f)
+        return self
+
+    def validate_change(self, field: str, validator: FieldValidator) -> Changeset:
+        existing_validators = self._field_validators.get(field, [])
+        self._field_validators[field] = existing_validators + [validator]
         return self
 
     def permitted_params(self) -> dict:

@@ -15,6 +15,11 @@ class Person(Model):
     pets = HasMany("tests.support.Pet", "owner_id")
 
 
+def is_30(age):
+    if age != 30:
+        return "not 30"
+
+
 def test_cast_empty():
     changeset = Changeset(User).cast({}, [])
     assert changeset.is_valid
@@ -40,3 +45,23 @@ def test_validate_required():
         "foo": ["Missing data for required field."],
         "bar": ["Missing data for required field."],
     }
+
+
+def test_validate_change():
+    changeset = (
+        Changeset(Person)
+        .cast({"name": "Richard", "age": 31}, ["name", "age"])
+        .validate_change("age", is_30)
+    )
+    assert changeset.errors == {
+        "age": ["not 30"],
+    }
+
+
+def test_validate_change_only_validates_if_field_is_changed():
+    changeset = (
+        Changeset(Person)
+        .cast({"name": "Richard"}, ["name"])
+        .validate_change("age", is_30)
+    )
+    assert changeset.is_valid
