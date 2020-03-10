@@ -2,6 +2,7 @@ import pytest
 
 from datamapper import Query, Repo
 from tests.support import Home, Pet, User, database
+from datamapper.changeset import Changeset
 
 repo = Repo(database)
 
@@ -231,6 +232,48 @@ async def test_preload_from_query():
 
     home = await repo.one(home.to_query().preload("owner"))
     assert home.owner.id == user.id
+
+
+@pytest.mark.asyncio
+async def test_insert_from_valid_changeset():
+    changeset = Changeset(User).cast({"name": "Richard"}, ["name"])
+    user = await repo.insert_changeset(changeset)
+
+    assert user.id
+    assert user.name == "Richard"
+
+
+@pytest.mark.asyncio
+async def test_insert_from_invalid_changeset():
+    changeset = (
+        Changeset(User).cast({"name": "Richard"}, ["name"]).validate_required(["foo"])
+    )
+    invalid_changeset = await repo.insert_changeset(changeset)
+
+    assert isinstance(invalid_changeset, Changeset)
+    assert not invalid_changeset.is_valid
+
+
+@pytest.mark.asyncio
+async def test_update_from_valid_changeset():
+    user = await repo.insert(User)
+    changeset = Changeset(user).cast({"name": "Richard"}, ["name"])
+    updated_user = await repo.update_changeset(changeset)
+
+    assert updated_user.id == user.id
+    assert updated_user.name == "Richard"
+
+
+@pytest.mark.asyncio
+async def test_update_from_invalid_changeset():
+    user = await repo.insert(User)
+    changeset = (
+        Changeset(user).cast({"name": "Richard"}, ["name"]).validate_required(["foo"])
+    )
+    invalid_changeset = await repo.update_changeset(changeset)
+
+    assert isinstance(invalid_changeset, Changeset)
+    assert not invalid_changeset.is_valid
 
 
 async def list_users(**values):

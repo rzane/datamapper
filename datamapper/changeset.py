@@ -14,6 +14,9 @@ class MarshmallowValidator:
 
     @classmethod
     def _sqla_to_marshmallow(cls, type_: Type) -> Type:
+        """
+        Maps sqlalchemy column types to marshmallow field types.
+        """
         if isinstance(type_, sqlalchemy.String):
             return fields.String
         if isinstance(type_, sqlalchemy.BigInteger):
@@ -24,10 +27,9 @@ class MarshmallowValidator:
     def validate(self) -> Tuple[bool, dict]:
         """
         Programatically build a Marshmallow schema and validate against it.
-        """
-        if not self.changeset.model:
-            raise TypeError("TODO FIXME (model not initialized)")
 
+        Returns (True, changes) | (False, errors)
+        """
         permitted_params = self.changeset.permitted_params()
         SchemaType = self._build_schema()
         errors = SchemaType().validate(permitted_params)
@@ -39,7 +41,7 @@ class MarshmallowValidator:
 
     def _build_schema(self) -> Type[Schema]:
         """
-        Programatically build a Marshmallow schema.
+        Programatically build a Marshmallow Schema object.
         """
         all_fields = set(self.changeset.permitted).union(self.changeset.required)
         schema_attributes = {field: self._build_field(field) for field in all_fields}
@@ -47,7 +49,7 @@ class MarshmallowValidator:
 
     def _build_field(self, name: str) -> Type[fields.Field]:
         """
-        Programatically build a Marshmallow field.
+        Programatically build a Marshmallow Field object.
 
         Attempts to map the sqlalchemy column type to the relevant field type.
         """
@@ -82,7 +84,7 @@ class MarshmallowValidator:
 class Changeset:
     VALIDATOR_CLASS = MarshmallowValidator
 
-    def __init__(self, model: Type[Model]) -> None:
+    def __init__(self, model: Union[Model, Type[Model]]) -> None:
         self.model = model
 
         self._changes: dict = {}
@@ -94,34 +96,8 @@ class Changeset:
         self._field_validators: Dict[str, List[FieldValidator]] = {}
         self._schema_validators: List = []
 
-    def _update(self, **kwargs: Any) -> Changeset:
-        # Can replace this with an immutable collection library.
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
-        return self
-
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
         return self._update(params=params, permitted=permitted)
-
-    def _evaluate(self) -> None:
-        """
-        Build the validation class and validate the params, finally setting
-        the `changes` and `errors` attributes.
-        """
-        if self._evaluated:
-            return
-
-        changes = {}
-        errors = {}
-
-        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
-        if is_valid:
-            changes = result
-        else:
-            errors = result
-
-        self._update(_changes=changes, _errors=errors, _evaluated=True)
 
     def validate_required(self, fields: List) -> Changeset:
         for f in fields:
@@ -158,4 +134,41 @@ class Changeset:
 
     def __repr__(self) -> str:
         m = f"is_valid={self.is_valid}" if self._evaluated else "unevaluated"
-        return f"<Changeset model={self.model.__name__} {m}>"
+        return f"<Changeset model={self.model} {m}>"
+
+    def _update(self, **kwargs: Any) -> Changeset:
+        # Can replace this with an immutable collection library.
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+        return self
+
+    def _model_class(self) -> Type[Model]:
+        if isinstance(self.model, Model):
+            return self.model.__class__
+        else:
+            return self.model
+
+    def _model_instance(self) -> Model:
+        if not isinstance(self.model, Model):
+            raise ValueError("Must be a Model instance, not a class.")
+        return self.model
+
+    def _evaluate(self) -> None:
+        """
+        Build the validation class and validate the params, finally setting
+        the `changes` and `errors` attributes.
+        """
+        if self._evaluated:
+            return
+
+        changes = {}
+        errors = {}
+
+        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
+        if is_valid:
+            changes = result
+        else:
+            errors = result
+
+        self._update(_changes=changes, _errors=errors, _evaluated=True)
