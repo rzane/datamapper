@@ -46,28 +46,6 @@ def test_where_literal():
     assert "WHERE users.id = 7" in to_sql(query.to_sql())
 
 
-def test_where_with_join():
-    query = Query(User).where(home__id=9)
-    sql = to_sql(query.to_sql())
-
-    assert "JOIN homes AS home ON home.owner_id = users.id" in sql
-    assert "WHERE home.id = 9" in sql
-
-
-# TODO I'm actually not sure if this query is right?
-def test_where_with_nested_join():
-    query = Query(User).where(home__owner__pets__id=9)
-    sql = to_sql(query.to_sql())
-
-    assert "WHERE home_owner_pets.id = 9" in sql
-    assert "JOIN homes AS home ON home.owner_id = users.id" in sql
-    assert "JOIN users AS home_owner ON home_owner.id = home.owner_id" in sql
-    assert (
-        "JOIN pets AS home_owner_pets ON home_owner_pets.owner_id = home_owner.id"
-        in sql
-    )
-
-
 def test_order_by():
     query = Query(User).order_by("name")
     assert "ORDER BY users.name ASC" in to_sql(query.to_sql())
