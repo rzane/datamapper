@@ -44,10 +44,12 @@ class MarshmallowValidator:
         Programatically build a Marshmallow Schema object.
         """
         all_fields = set(self.changeset.permitted).union(self.changeset.required)
-        schema_attributes = {field: self._build_field(field) for field in all_fields}
-        return type("schema", (Schema,), schema_attributes)
+        field_definitions: Dict[str, fields.Field] = {
+            field: self._build_field(field) for field in all_fields
+        }
+        return Schema.from_dict(field_definitions)  # type: ignore
 
-    def _build_field(self, name: str) -> Type[fields.Field]:
+    def _build_field(self, name: str) -> fields.Field:
         """
         Programatically build a Marshmallow Field object.
 
