@@ -64,3 +64,8 @@ def test_order_by_literal():
 def test_preload():
     query = Query(User).preload("home")
     assert query._preloads == ["home"]
+
+
+def test_join():
+    query = Query(User).join("pets")
+    assert "JOIN pets ON pets.owner_id = users.id" in to_sql(query.to_sql())

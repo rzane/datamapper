@@ -22,11 +22,20 @@ OrderClause = Union[ClauseElement, str]
 
 
 class Query:
-    __slots__ = ["_model", "_wheres", "_order_bys", "_limit", "_offset", "_preloads"]
+    __slots__ = [
+        "_model",
+        "_wheres",
+        "_order_bys",
+        "_limit",
+        "_offset",
+        "_joins",
+        "_preloads",
+    ]
 
     _model: Type[model.Model]
     _wheres: List[WhereClause]
     _order_bys: List[OrderClause]
+    _joins: List[str]
     _limit: Optional[int]
     _offset: Optional[int]
     _preloads: List[str]
@@ -35,6 +44,7 @@ class Query:
         self._model = model
         self._wheres = []
         self._order_bys = []
+        self._joins = []
         self._limit = None
         self._offset = None
         self._preloads = []
@@ -69,12 +79,18 @@ class Query:
     def preload(self, preload: str) -> Query:
         return self.__update(_preloads=self._preloads + [preload])
 
+    def join(self, join: str) -> Query:
+        return self.__update(_joins=self._joins + [join])
+
     def __build_query(self, sql: ClauseElement) -> ClauseElement:
         if self._wheres:
             sql = self.__build_where(sql)
 
         if self._order_bys:
             sql = self.__build_order(sql)
+
+        if self._joins:
+            sql = self.__build_joins(sql)
 
         if self._limit is not None:
             sql = sql.limit(self._limit)
@@ -95,6 +111,19 @@ class Query:
             else:
                 sql = sql.where(where)
         return sql
+
+    def __build_joins(self, sql: ClauseElement) -> ClauseElement:
+        assert len(self._joins) == 1
+
+        join = self._joins[0]
+        assoc = self._model.association(join)
+        clause = assoc.owner.__table__.join(
+            assoc.related.__table__,
+            assoc.related.column(assoc.related_key)
+            == assoc.owner.column(assoc.owner_key),
+        )
+
+        return sql.select_from(clause)
 
     def __build_order(self, sql: ClauseElement) -> ClauseElement:
         clauses = []
