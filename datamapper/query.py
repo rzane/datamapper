@@ -19,6 +19,8 @@ OPERATIONS = {
 
 
 class Query:
+    __slots__ = ["_model", "_wheres", "_order_bys", "_limit", "_offset", "_preloads"]
+
     _model: Type[model.Model]
     _wheres: List[ClauseElement]
     _order_bys: List[str]
@@ -50,14 +52,10 @@ class Query:
         return self._model.deserialize(row)
 
     def limit(self, value: int) -> Query:
-        query = self.__clone()
-        query._limit = value
-        return query
+        return self.__update(_limit=value)
 
     def offset(self, value: int) -> Query:
-        query = self.__clone()
-        query._offset = value
-        return query
+        return self.__update(_offset=value)
 
     def where(self, *args: ClauseElement, **kwargs: Any) -> Query:
         wheres: List[ClauseElement] = []
@@ -72,9 +70,7 @@ class Query:
             expr = getattr(column, op)
             wheres.append(expr(value))
 
-        query = self.__clone()
-        query._wheres = query._wheres + wheres
-        return query
+        return self.__update(_wheres=self._wheres + wheres)
 
     def order_by(self, *args: Union[str, ClauseElement]) -> Query:
         exprs = []
@@ -90,14 +86,10 @@ class Query:
                 assert isinstance(arg, ClauseElement)
                 exprs.append(arg)
 
-        query = self.__clone()
-        query._order_bys = query._order_bys + exprs
-        return query
+        return self.__update(_order_bys=self._order_bys + exprs)
 
     def preload(self, preload: str) -> Query:
-        query = self.__clone()
-        query._preloads = query._preloads + [preload]
-        return query
+        return self.__update(_preloads=self._preloads + [preload])
 
     def __build_query(self, sql: ClauseElement) -> ClauseElement:
         for where_clause in self._wheres:
@@ -114,13 +106,13 @@ class Query:
 
         return sql
 
-    def __clone(self) -> Query:
+    def __update(self, **kwargs: Any) -> Query:
         query = self.__class__(self._model)
-        query._wheres = self._wheres
-        query._order_bys = self._order_bys
-        query._limit = self._limit
-        query._offset = self._offset
-        query._preloads = self._preloads
+        for key in self.__class__.__slots__:
+            if key in kwargs:
+                setattr(query, key, kwargs[key])
+            else:
+                setattr(query, key, getattr(self, key))
         return query
 
 
