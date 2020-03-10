@@ -68,4 +68,12 @@ def test_preload():
 
 def test_join():
     query = Query(User).join("pets")
-    assert "JOIN pets ON pets.owner_id = users.id" in to_sql(query.to_sql())
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets ON pets.owner_id = users.id" in sql
+
+
+def test_nested_join():
+    query = Query(User).join("pets").join("pets.owner")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets ON pets.owner_id = users.id" in sql
+    assert "JOIN users ON users.id = pets.owner_id" in sql

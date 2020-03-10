@@ -1,7 +1,9 @@
 from __future__ import annotations
 import datamapper.model as model
+from datamapper._utils import to_tree
 from typing import Any, List, Mapping, Optional, Union, Tuple, Type
-from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete
+from sqlalchemy import Table
+from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
 
 
 SEPARATOR = "__"
@@ -113,16 +115,12 @@ class Query:
         return sql
 
     def __build_joins(self, sql: ClauseElement) -> ClauseElement:
-        assert len(self._joins) == 1
-
-        join = self._joins[0]
-        assoc = self._model.association(join)
-        clause = assoc.owner.__table__.join(
-            assoc.related.__table__,
-            assoc.related.column(assoc.related_key)
-            == assoc.owner.column(assoc.owner_key),
+        clause = self.__join(
+            self._model.__table__,
+            self._model,
+            self._model.__table__,
+            to_tree(self._joins),
         )
-
         return sql.select_from(clause)
 
     def __build_order(self, sql: ClauseElement) -> ClauseElement:
@@ -148,6 +146,25 @@ class Query:
             else:
                 setattr(query, key, getattr(self, key))
         return query
+
+    def __join(
+        self,
+        clause: FromClause,
+        owner: Type[model.Model],
+        owner_table: Table,
+        tree: dict,
+    ) -> ClauseElement:
+        for name, subtree in tree.items():
+            assoc = owner.association(name)
+
+            related_table = assoc.related.__table__  # TODO: Alias!
+            related_column = getattr(related_table.c, assoc.related_key)
+            owner_column = getattr(owner_table.c, assoc.owner_key)
+
+            clause = clause.join(related_table, related_column == owner_column)
+            clause = self.__join(clause, assoc.related, related_table, subtree)
+
+        return clause
 
 
 def _parse_where(name: str) -> Tuple[str, str]:
