@@ -17,13 +17,16 @@ OPERATIONS = {
     "lte": "__le__",
 }
 
+WhereClause = Union[ClauseElement, dict]
+OrderClause = Union[ClauseElement, str]
+
 
 class Query:
     __slots__ = ["_model", "_wheres", "_order_bys", "_limit", "_offset", "_preloads"]
 
     _model: Type[model.Model]
-    _wheres: List[ClauseElement]
-    _order_bys: List[str]
+    _wheres: List[WhereClause]
+    _order_bys: List[OrderClause]
     _limit: Optional[int]
     _offset: Optional[int]
     _preloads: List[str]
@@ -58,45 +61,20 @@ class Query:
         return self.__update(_offset=value)
 
     def where(self, *args: ClauseElement, **kwargs: Any) -> Query:
-        wheres: List[ClauseElement] = []
-
-        for arg in args:
-            assert isinstance(arg, ClauseElement)
-            wheres.append(arg)
-
-        for name, value in kwargs.items():
-            name, op = _parse_where(name)
-            column = self._model.column(name)
-            expr = getattr(column, op)
-            wheres.append(expr(value))
-
-        return self.__update(_wheres=self._wheres + wheres)
+        return self.__update(_wheres=self._wheres + list(args) + [kwargs])
 
     def order_by(self, *args: Union[str, ClauseElement]) -> Query:
-        exprs = []
-
-        for arg in args:
-            if isinstance(arg, str) and arg.startswith("-"):
-                column = self._model.column(arg[1:])
-                exprs.append(column.desc())
-            elif isinstance(arg, str):
-                column = self._model.column(arg)
-                exprs.append(column.asc())
-            else:
-                assert isinstance(arg, ClauseElement)
-                exprs.append(arg)
-
-        return self.__update(_order_bys=self._order_bys + exprs)
+        return self.__update(_order_bys=self._order_bys + list(args))
 
     def preload(self, preload: str) -> Query:
         return self.__update(_preloads=self._preloads + [preload])
 
     def __build_query(self, sql: ClauseElement) -> ClauseElement:
-        for where_clause in self._wheres:
-            sql = sql.where(where_clause)
+        if self._wheres:
+            sql = self.__build_where(sql)
 
         if self._order_bys:
-            sql = sql.order_by(*self._order_bys)
+            sql = self.__build_order(sql)
 
         if self._limit is not None:
             sql = sql.limit(self._limit)
@@ -105,6 +83,33 @@ class Query:
             sql = sql.offset(self._offset)
 
         return sql
+
+    def __build_where(self, sql: ClauseElement) -> ClauseElement:
+        for where in self._wheres:
+            if isinstance(where, dict):
+                for name, value in where.items():
+                    name, op = _parse_where(name)
+                    column = self._model.column(name)
+                    clause = getattr(column, op)(value)
+                    sql = sql.where(clause)
+            else:
+                sql = sql.where(where)
+        return sql
+
+    def __build_order(self, sql: ClauseElement) -> ClauseElement:
+        clauses = []
+        for order_by in self._order_bys:
+            if isinstance(order_by, str):
+                direction = "asc"
+                if order_by[0] == "-":
+                    direction = "desc"
+                    order_by = order_by[1:]
+                column = self._model.column(order_by)
+                clause = getattr(column, direction)()
+                clauses.append(clause)
+            else:
+                clauses.append(order_by)
+        return sql.order_by(*clauses)
 
     def __update(self, **kwargs: Any) -> Query:
         query = self.__class__(self._model)
