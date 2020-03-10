@@ -1,4 +1,5 @@
-from typing import Any, Type, Union, List, Optional, Protocol
+from typing import Any, Type, Union, List, Optional
+from typing_extensions import Protocol
 from sqlalchemy import func
 from databases import Database
 from datamapper.query import Query
