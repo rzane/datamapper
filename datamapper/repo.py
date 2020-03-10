@@ -4,7 +4,7 @@ from sqlalchemy import func
 from databases import Database
 from datamapper.query import Query
 from datamapper.model import Model, Association, Cardinality
-from datamapper._utils import cast_list, expand_preloads, assert_one, collect_sql_values
+from datamapper._utils import to_list, to_tree, assert_one
 
 
 class Queryable(Protocol):
@@ -49,14 +49,14 @@ class Repo:
         return await self.database.fetch_val(sql)
 
     async def insert(self, model: Type[Model], **values: Any) -> Model:
-        sql_values = collect_sql_values(model, values)
+        sql_values = _collect_sql_values(model, values)
         sql = model.__table__.insert().values(**sql_values)
         record_id = await self.database.execute(sql)
         return model(id=record_id, **values)
 
     async def update(self, record: Model, **values: Any) -> Model:
         query = record.to_query()
-        sql_values = collect_sql_values(record, values)
+        sql_values = _collect_sql_values(record, values)
         sql = query.to_update_sql().values(**sql_values)
         await self.database.execute(sql)
         for key, value in values.items():
@@ -83,8 +83,8 @@ class Repo:
     async def preload(
         self, records: Union[Model, List[Model]], preloads: List[str]
     ) -> None:
-        records = cast_list(records)
-        preloads = expand_preloads(cast_list(preloads))
+        records = to_list(records)
+        preloads = to_tree(to_list(preloads))
         await self.__preload(records, preloads)
 
     async def __preload(self, owners: List[Model], preloads: dict) -> None:
@@ -118,3 +118,19 @@ def _resolve_preloads(
             setattr(owner, assoc.name, lookup.get(key, None))
         else:
             setattr(owner, assoc.name, lookup.get(key, []))
+
+
+def _collect_sql_values(model: Union[Model, Type[Model]], values: dict) -> dict:
+    """
+    Convert attributes and association values to values that will be stored
+    in the database.
+    """
+
+    sql_values = {}
+    for key, value in values.items():
+        if key in model.__associations__:
+            assoc = model.__associations__[key]
+            sql_values.update(assoc.values(value))
+        else:
+            sql_values[key] = value
+    return sql_values
