@@ -5,7 +5,7 @@ from sqlalchemy import MetaData, Column, BigInteger, String, ForeignKey
 from sqlalchemy.dialects import postgresql
 
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/datamapper")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datamapper")
 
 
 metadata = MetaData()
