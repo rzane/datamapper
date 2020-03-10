@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -euo pipefail
+
+export SANIC_ENV=test
+
+say() {
+  printf "\e[33m$1\e[0m\n"
+}
+
+say "==>> Installing dependencies..."
+poetry install -n
+
+say "\n==>> Checking formatting..."
+poetry run black --check .
+
+say "\n==>> Running the linter..."
+poetry run flake8 datamapper
+
+say "\n==>> Running the typechecker..."
+poetry run mypy datamapper tests --pretty
+
+say "\n==>> Running the test suite..."
+poetry run pytest --cov datamapper

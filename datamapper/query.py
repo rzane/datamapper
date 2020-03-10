@@ -1,7 +1,7 @@
 from __future__ import annotations
 import datamapper.model as model
 from typing import Any, List, Mapping, Optional, Union, Tuple, Type
-from sqlalchemy import Column, join, select, Table
+from sqlalchemy import Column, join, Table
 from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, Join
 
 
