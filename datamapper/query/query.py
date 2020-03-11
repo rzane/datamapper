@@ -1,8 +1,8 @@
 from __future__ import annotations
 import datamapper.model as model
 from datamapper._utils import to_tree
-from collections import defaultdict
-from typing import Any, List, Mapping, Optional, Union, Tuple, Type, Dict
+from datamapper.query.alias_tracker import AliasTracker
+from typing import Any, List, Mapping, Optional, Union, Tuple, Type
 from sqlalchemy import Table
 from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
 
@@ -22,20 +22,6 @@ OPERATIONS = {
 
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
-
-
-class AliasTracker:
-    _aliases: Dict[str, int]
-
-    def __init__(self) -> None:
-        self._aliases = defaultdict(int)
-
-    def alias(self, table: Table) -> Table:
-        name = table.name[0]
-        count = self._aliases[name]
-        alias = f"{name}{count}"
-        self._aliases[name] += 1
-        return table.alias(alias)
 
 
 class Query:
