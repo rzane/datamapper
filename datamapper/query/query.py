@@ -120,7 +120,7 @@ class Query:
         table = self._model.__table__
         join_tree = to_join_tree(self._joins)
         tracker = AliasTracker()
-        clause = _walk_joins(sql, table, join_tree, tracker)
+        clause = _walk_joins(table, table, join_tree, tracker)
         return sql.select_from(clause)
 
     def __build_order(self, sql: ClauseElement) -> ClauseElement:
