@@ -91,14 +91,16 @@ class Query:
         return self.__update(_joins=self._joins + [join])
 
     def __compile(self, sql: ClauseElement) -> ClauseElement:
-        if self._wheres:
-            sql = self.__build_where(sql)
-
-        if self._order_bys:
-            sql = self.__build_order(sql)
+        tracker = AliasTracker()
 
         if self._joins:
-            sql = self.__build_joins(sql)
+            sql = self.__build_joins(sql, tracker)
+
+        if self._wheres:
+            sql = self.__build_where(sql, tracker)
+
+        if self._order_bys:
+            sql = self.__build_order(sql, tracker)
 
         if self._limit is not None:
             sql = sql.limit(self._limit)
@@ -108,7 +110,7 @@ class Query:
 
         return sql
 
-    def __build_where(self, sql: ClauseElement) -> ClauseElement:
+    def __build_where(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         for where in self._wheres:
             if isinstance(where, dict):
                 for name, value in where.items():
@@ -120,14 +122,13 @@ class Query:
                 sql = sql.where(where)
         return sql
 
-    def __build_joins(self, sql: ClauseElement) -> ClauseElement:
+    def __build_joins(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         table = self._model.__table__
         join_tree = to_join_tree(self._joins)
-        tracker = AliasTracker()
         clause = _walk_joins(table, table, join_tree, tracker)
         return sql.select_from(clause)
 
-    def __build_order(self, sql: ClauseElement) -> ClauseElement:
+    def __build_order(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         clauses = []
         for order_by in self._order_bys:
             if isinstance(order_by, str):
