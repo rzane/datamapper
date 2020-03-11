@@ -131,7 +131,7 @@ class Query:
 
     def __build_joins(self, sql: ClauseElement) -> ClauseElement:
         clause = self.__join(
-            self._model.__table__,
+            sql,
             self._model,
             self._model.__table__,
             to_tree(self._joins),
