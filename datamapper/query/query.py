@@ -86,6 +86,10 @@ class Query:
         join = Join(self._model, name.split("."))
         return self.__update(_joins=self._joins + [join])
 
+    def outerjoin(self, name: str) -> Query:
+        join = Join(self._model, name.split("."), outer=True)
+        return self.__update(_joins=self._joins + [join])
+
     def __compile(self, sql: ClauseElement) -> ClauseElement:
         if self._wheres:
             sql = self.__build_where(sql)
@@ -158,7 +162,9 @@ def _walk_joins(
         related_column = getattr(related_table.c, assoc.related_key)
         owner_column = getattr(owner_table.c, assoc.owner_key)
 
-        clause = clause.join(related_table, related_column == owner_column)
+        clause = clause.join(
+            related_table, related_column == owner_column, isouter=join.is_outer
+        )
         clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause

@@ -5,10 +5,11 @@ from datamapper.errors import MissingJoinError
 
 
 class Join:
-    def __init__(self, base: Type[model.Model], path: List[str]):
+    def __init__(self, base: Type[model.Model], path: List[str], outer: bool = False):
         self.base = base
         self.path = path
         self.name = ".".join(self.path)
+        self.is_outer = outer
 
     def find_association(self) -> model.Association:
         assoc = None
@@ -20,11 +21,11 @@ class Join:
         return assoc
 
     def __hash__(self) -> int:
-        return hash(self.name)
+        return hash((self.name, self.is_outer))
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Join):
-            return self.name == other.name
+            return self.name == other.name and self.is_outer == other.is_outer
         else:
             return False
 
