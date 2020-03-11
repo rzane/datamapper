@@ -70,13 +70,13 @@ class Query:
         return self
 
     def to_sql(self) -> Select:
-        return self.__build_query(self._model.__table__.select())
+        return self.__compile(self._model.__table__.select())
 
     def to_update_sql(self) -> Update:
-        return self.__build_query(self._model.__table__.update())
+        return self.__compile(self._model.__table__.update())
 
     def to_delete_sql(self) -> Delete:
-        return self.__build_query(self._model.__table__.delete())
+        return self.__compile(self._model.__table__.delete())
 
     def deserialize(self, row: Mapping) -> model.Model:
         return self._model.deserialize(row)
@@ -99,7 +99,7 @@ class Query:
     def join(self, join: str) -> Query:
         return self.__update(_joins=self._joins + [join])
 
-    def __build_query(self, sql: ClauseElement) -> ClauseElement:
+    def __compile(self, sql: ClauseElement) -> ClauseElement:
         if self._wheres:
             sql = self.__build_where(sql)
 
