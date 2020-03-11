@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import List, Type, Any, Dict
 import datamapper.model as model
 from datamapper.errors import MissingJoinError
@@ -7,13 +8,9 @@ class Join:
     def __init__(self, base: Type[model.Model], path: List[str]):
         self.base = base
         self.path = path
+        self.name = ".".join(self.path)
 
-    @property
-    def name(self) -> str:
-        return ".".join(self.path)
-
-    @property
-    def association(self) -> model.Association:
+    def find_association(self) -> model.Association:
         assoc = None
         model = self.base
         for key in self.path:

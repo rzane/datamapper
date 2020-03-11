@@ -1,6 +1,7 @@
+import pytest
 from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
-from datamapper import Query
+from datamapper import Query, MissingJoinError
 from tests.support import User, to_sql
 
 
@@ -85,3 +86,10 @@ def test_nested_join_duplicate():
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
     assert "JOIN users AS u0 ON u0.id = p0.owner_id" in sql
     assert "JOIN pets AS p1 ON p1.owner_id = u0.id" in sql
+
+
+def test_missing_join():
+    query = Query(User).join("pets.owner")
+
+    with pytest.raises(MissingJoinError):
+        query.to_sql()

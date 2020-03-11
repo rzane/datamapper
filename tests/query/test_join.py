@@ -20,14 +20,16 @@ def test_join_name_nested() -> None:
     assert join.name == "pets.owner"
 
 
-def test_join_association() -> None:
+def test_join_find_association() -> None:
     join = Join(User, ["pets"])
-    assert join.association == User.association("pets")
+    assoc = join.find_association()
+    assert assoc == User.association("pets")
 
 
 def test_join_association_nested() -> None:
     join = Join(User, ["pets", "owner"])
-    assert join.association == Pet.association("owner")
+    assoc = join.find_association()
+    assert assoc == Pet.association("owner")
 
 
 def test_join_equality() -> None:

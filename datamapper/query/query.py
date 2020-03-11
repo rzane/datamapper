@@ -1,7 +1,7 @@
 from __future__ import annotations
 import datamapper.model as model
-from datamapper._utils import to_tree
 from datamapper.query.alias_tracker import AliasTracker
+from datamapper.query.join import Join, to_join_tree
 from typing import Any, List, Mapping, Optional, Union, Tuple, Type
 from sqlalchemy import Table
 from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
@@ -38,7 +38,7 @@ class Query:
     _model: Type[model.Model]
     _wheres: List[WhereClause]
     _order_bys: List[OrderClause]
-    _joins: List[str]
+    _joins: List[Join]
     _limit: Optional[int]
     _offset: Optional[int]
     _preloads: List[str]
@@ -82,7 +82,8 @@ class Query:
     def preload(self, preload: str) -> Query:
         return self.__update(_preloads=self._preloads + [preload])
 
-    def join(self, join: str) -> Query:
+    def join(self, name: str) -> Query:
+        join = Join(self._model, name.split("."))
         return self.__update(_joins=self._joins + [join])
 
     def __compile(self, sql: ClauseElement) -> ClauseElement:
@@ -116,13 +117,10 @@ class Query:
         return sql
 
     def __build_joins(self, sql: ClauseElement) -> ClauseElement:
-        clause = _walk_joins(
-            sql,
-            self._model,
-            self._model.__table__,
-            to_tree(self._joins),
-            AliasTracker(),
-        )
+        table = self._model.__table__
+        join_tree = to_join_tree(self._joins)
+        tracker = AliasTracker()
+        clause = _walk_joins(sql, table, join_tree, tracker)
         return sql.select_from(clause)
 
     def __build_order(self, sql: ClauseElement) -> ClauseElement:
@@ -151,21 +149,17 @@ class Query:
 
 
 def _walk_joins(
-    clause: FromClause,
-    owner: Type[model.Model],
-    owner_table: Table,
-    tree: dict,
-    tracker: AliasTracker,
+    clause: FromClause, owner_table: Table, tree: dict, tracker: AliasTracker,
 ) -> ClauseElement:
-    for name, subtree in tree.items():
-        assoc = owner.association(name)
+    for join, subjoins in tree.items():
+        assoc = join.find_association()
 
         related_table = tracker.alias(assoc.related.__table__)
         related_column = getattr(related_table.c, assoc.related_key)
         owner_column = getattr(owner_table.c, assoc.owner_key)
 
         clause = clause.join(related_table, related_column == owner_column)
-        clause = _walk_joins(clause, assoc.related, related_table, subtree, tracker)
+        clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause
 
