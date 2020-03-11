@@ -13,9 +13,7 @@ def assert_one(values: list) -> None:
         raise errors.NoResultsError()
 
     if len(values) > 1:
-        raise errors.MultipleResultsError(
-            f"Expected at most one result, got {len(values)}"
-        )
+        raise errors.MultipleResultsError(len(values))
 
 
 def to_list(value: Union[T, List[T]]) -> List[T]:

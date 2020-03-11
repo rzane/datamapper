@@ -58,9 +58,7 @@ def to_join_tree(joins: List[Join]) -> dict:
                 parent = cache[parent_name]
                 current = current[parent]
             except KeyError:
-                raise MissingJoinError(
-                    f"Can't join '{join.name}' without joining '{parent_name}'"
-                )
+                raise MissingJoinError(parent_name, join.name)
 
         current[join] = {}
         cache[join.name] = join

@@ -93,7 +93,7 @@ def test_to_join_tree() -> None:
 
 def test_to_join_tree_missing() -> None:
     owner = Join(User, ["pets", "owner"])
-    message = "Can't join 'pets.owner' without joining 'pets'"
+    message = "can't join 'pets.owner' without joining 'pets'"
 
     with pytest.raises(MissingJoinError, match=message):
         to_join_tree([owner])

@@ -65,22 +65,14 @@ class Model(metaclass=ModelMeta):
         try:
             return cls.__attributes__[name]
         except KeyError:
-            model = cls.__name__
-            fields = ", ".join(cls.__attributes__.keys())
-            msg = f"Column '{name}' does not exist for model '{model}'."
-            msg += f" Valid fields are: {fields}."
-            raise errors.InvalidColumnError(msg)
+            raise errors.InvalidColumnError(cls.__name__, name)
 
     @classmethod
     def association(cls, name: str) -> Association:
         try:
             return cls.__associations__[name]
         except KeyError:
-            model = cls.__name__
-            associations = ", ".join(cls.__associations__.keys())
-            msg = f"Association '{name}' does not exist for model '{model}'."
-            msg += f" Valid associations are: {associations}."
-            raise errors.InvalidAssociationError(msg)
+            raise errors.InvalidAssociationError(cls.__name__, name)
 
     @hybrid_method
     def to_query(binding: Union[Type[Model], Model]) -> query.Query:
@@ -104,7 +96,7 @@ class Model(metaclass=ModelMeta):
             return self.attributes.get(key)
         elif key in self.__associations__:
             if key not in self.__loaded_associations:
-                self.__raise_not_loaded(key)
+                raise errors.NotLoadedError(self.__class__.__name__, key)
             return self.__loaded_associations[key]
         else:
             self.__raise_invalid_attribute(key)
@@ -121,11 +113,6 @@ class Model(metaclass=ModelMeta):
                 self.attributes[assoc.owner_key] = related_key
         else:
             super().__setattr__(key, value)
-
-    def __raise_not_loaded(self, key: str) -> None:
-        raise errors.NotLoadedError(
-            f"Association '{key}' is not loaded for model '{self.__class__.__name__}'"
-        )
 
     def __raise_invalid_attribute(self, key: str) -> None:
         raise AttributeError(
