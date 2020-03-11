@@ -116,7 +116,7 @@ class Query:
         return sql
 
     def __build_joins(self, sql: ClauseElement) -> ClauseElement:
-        clause = self.__walk_joins(
+        clause = _walk_joins(
             sql,
             self._model,
             self._model.__table__,
@@ -149,27 +149,25 @@ class Query:
                 setattr(query, key, getattr(self, key))
         return query
 
-    def __walk_joins(
-        self,
-        clause: FromClause,
-        owner: Type[model.Model],
-        owner_table: Table,
-        tree: dict,
-        tracker: AliasTracker,
-    ) -> ClauseElement:
-        for name, subtree in tree.items():
-            assoc = owner.association(name)
 
-            related_table = tracker.alias(assoc.related.__table__)
-            related_column = getattr(related_table.c, assoc.related_key)
-            owner_column = getattr(owner_table.c, assoc.owner_key)
+def _walk_joins(
+    clause: FromClause,
+    owner: Type[model.Model],
+    owner_table: Table,
+    tree: dict,
+    tracker: AliasTracker,
+) -> ClauseElement:
+    for name, subtree in tree.items():
+        assoc = owner.association(name)
 
-            clause = clause.join(related_table, related_column == owner_column)
-            clause = self.__walk_joins(
-                clause, assoc.related, related_table, subtree, tracker
-            )
+        related_table = tracker.alias(assoc.related.__table__)
+        related_column = getattr(related_table.c, assoc.related_key)
+        owner_column = getattr(owner_table.c, assoc.owner_key)
 
-        return clause
+        clause = clause.join(related_table, related_column == owner_column)
+        clause = _walk_joins(clause, assoc.related, related_table, subtree, tracker)
+
+    return clause
 
 
 def _parse_where(name: str) -> Tuple[str, str]:
