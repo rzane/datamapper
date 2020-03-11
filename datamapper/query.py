@@ -1,7 +1,8 @@
 from __future__ import annotations
 import datamapper.model as model
 from datamapper._utils import to_tree
-from typing import Any, List, Mapping, Optional, Union, Tuple, Type
+from collections import defaultdict
+from typing import Any, List, Mapping, Optional, Union, Tuple, Type, Dict
 from sqlalchemy import Table
 from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
 
@@ -21,6 +22,20 @@ OPERATIONS = {
 
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
+
+
+class AliasTracker:
+    _aliases: Dict[str, int]
+
+    def __init__(self) -> None:
+        self._aliases = defaultdict(int)
+
+    def alias(self, table: Table) -> Table:
+        name = table.name[0]
+        count = self._aliases[name]
+        alias = f"{name}{count}"
+        self._aliases[name] += 1
+        return table.alias(alias)
 
 
 class Query:
@@ -120,6 +135,7 @@ class Query:
             self._model,
             self._model.__table__,
             to_tree(self._joins),
+            AliasTracker(),
         )
         return sql.select_from(clause)
 
@@ -153,16 +169,17 @@ class Query:
         owner: Type[model.Model],
         owner_table: Table,
         tree: dict,
+        tracker: AliasTracker,
     ) -> ClauseElement:
         for name, subtree in tree.items():
             assoc = owner.association(name)
 
-            related_table = assoc.related.__table__  # TODO: Alias!
+            related_table = tracker.alias(assoc.related.__table__)
             related_column = getattr(related_table.c, assoc.related_key)
             owner_column = getattr(owner_table.c, assoc.owner_key)
 
             clause = clause.join(related_table, related_column == owner_column)
-            clause = self.__join(clause, assoc.related, related_table, subtree)
+            clause = self.__join(clause, assoc.related, related_table, subtree, tracker)
 
         return clause
 
