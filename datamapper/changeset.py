@@ -1,11 +1,78 @@
 from __future__ import annotations
-from typing import Any, List, Mapping, Type, Optional, Tuple, Callable, Union, Dict
+from typing import (
+    Any,
+    List,
+    Mapping,
+    Type,
+    Optional,
+    Tuple,
+    Callable,
+    Union,
+    Dict,
+    TypeVar,
+    Generic,
+)
 from marshmallow import Schema, fields, ValidationError
 import sqlalchemy
+from copy import copy
+import collections
 
 from datamapper.model import Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
+Data = Union[dict, Model, Type[Model]]
+
+T = TypeVar("T", dict, Model)
+
+
+class ChangesetData(Generic[T]):
+    def __init__(self, data: T):
+        self.data: T = data
+
+    def apply_changes(self, changes: dict) -> T:
+        if isinstance(self.data, dict):
+            return dict_merge(self.data, changes)
+        elif isinstance(self.data, Model):
+            inst = copy(self.data)
+            for k, v in changes.items():
+                setattr(inst, k, v)
+            return inst
+        else:
+            return self.data(**changes)
+
+    def field_type(self, field: str) -> Type:
+        if isinstance(self.data, Model):
+            column = self.data.__attributes__.get(field)
+            return column.type if column is not None else None
+        else:
+            return type(self.data.get(field))
+
+    @property
+    def type(self) -> Type:
+        return type(self.data)
+
+
+def dict_merge(dct: dict, merge_dct: dict) -> dict:
+    """
+    Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
+    updating only top-level keys, dict_merge recurses down into dicts nested
+    to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
+    ``dct``.
+    :param dct: dict onto which the merge is executed
+    :param merge_dct: dct merged into dct
+    :return: None
+    """
+    dct_ = dict(dct)
+    for k, v in merge_dct.items():
+        if (
+            k in dct_
+            and isinstance(dct_[k], dict)
+            and isinstance(merge_dct[k], collections.Mapping)
+        ):
+            dict_merge(dct_[k], merge_dct[k])
+        else:
+            dct_[k] = merge_dct[k]
+    return dct_
 
 
 class MarshmallowValidator:
@@ -13,14 +80,16 @@ class MarshmallowValidator:
         self.changeset = changeset
 
     @classmethod
-    def _sqla_to_marshmallow(cls, type_: Type) -> Type:
+    def _to_marshmallow_field_type(cls, type_: Type) -> Type:
         """
-        Maps sqlalchemy column types to marshmallow field types.
+        Maps types to marshmallow field types.
         """
         if isinstance(type_, sqlalchemy.String):
             return fields.String
         if isinstance(type_, sqlalchemy.BigInteger):
             return fields.Integer
+        elif type_ in Schema.TYPE_MAPPING:
+            return Schema.TYPE_MAPPING[type_]
         else:
             return fields.Raw
 
@@ -30,13 +99,12 @@ class MarshmallowValidator:
 
         Returns (True, changes) | (False, errors)
         """
-        permitted_params = self.changeset.permitted_params()
         SchemaType = self._build_schema()
-        errors = SchemaType().validate(permitted_params)
+        errors = SchemaType().validate(self.changeset.params)
         if errors:
             return (False, errors)
 
-        changes = SchemaType().dump(permitted_params)
+        changes = SchemaType().dump(self.changeset.params)
         return (True, changes)
 
     def _build_schema(self) -> Type[Schema]:
@@ -69,9 +137,11 @@ class MarshmallowValidator:
 
             return _validate
 
-        column: Optional[Type] = self.changeset.model.__attributes__.get(name)
+        field_type: Optional[Type] = self.changeset.field_type(name)
         field_type = (
-            self._sqla_to_marshmallow(column.type) if column is not None else fields.Raw
+            self._to_marshmallow_field_type(field_type)
+            if field_type is not None
+            else fields.Raw
         )
 
         type_args: Dict[str, Any] = {"required": name in self.changeset.required}
@@ -83,23 +153,23 @@ class MarshmallowValidator:
         return field_type(**type_args)
 
 
-class Changeset:
+class Changeset(Generic[T]):
     VALIDATOR_CLASS = MarshmallowValidator
 
-    def __init__(self, model: Union[Model, Type[Model]]) -> None:
-        self.model = model
+    def __init__(self, data: T) -> None:
+        self._data: ChangesetData[T] = ChangesetData(data)
 
         self._changes: dict = {}
         self._errors: dict = {}
         self.params: dict = {}
         self.permitted: list = []
         self.required: set = set()
-        self._evaluated = False
         self._field_validators: Dict[str, List[FieldValidator]] = {}
         self._schema_validators: List = []
 
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
-        return self._update(params=params, permitted=permitted)
+        permitted_params = {k: v for (k, v) in params.items() if k in permitted}
+        return self._update(params=permitted_params, permitted=permitted)
 
     def validate_required(self, fields: List) -> Changeset:
         for f in fields:
@@ -113,6 +183,17 @@ class Changeset:
 
     def permitted_params(self) -> dict:
         return {k: v for (k, v) in self.params.items() if k in set(self.permitted)}
+
+    def change(self, changes: dict) -> Changeset:
+        self._changes = dict_merge(self._changes, changes)
+        return self
+
+    def apply_changes(self) -> T:
+        self._evaluate()
+        return self._data.apply_changes(self.changes)
+
+    def field_type(self, field: str) -> Type:
+        return self._data.field_type(field)
 
     @property
     def has_error(self) -> bool:
@@ -135,8 +216,7 @@ class Changeset:
         return self._errors
 
     def __repr__(self) -> str:
-        m = f"is_valid={self.is_valid}" if self._evaluated else "unevaluated"
-        return f"<Changeset model={self.model} {m}>"
+        return f"<Changeset data={self._data.type}>"
 
     def _update(self, **kwargs: Any) -> Changeset:
         # Can replace this with an immutable collection library.
@@ -145,31 +225,21 @@ class Changeset:
                 setattr(self, k, v)
         return self
 
-    def _model_class(self) -> Type[Model]:
-        if isinstance(self.model, Model):
-            return self.model.__class__
-        else:
-            return self.model
-
-    def _model_instance(self) -> Model:
-        if not isinstance(self.model, Model):
-            raise ValueError("Must be a Model instance, not a class.")
-        return self.model
+    @property
+    def data(self) -> T:
+        return self._data.data
 
     def _evaluate(self) -> None:
         """
         Build the validation class and validate the params, finally setting
         the `changes` and `errors` attributes.
         """
-        if self._evaluated:
-            return
-
-        changes = {}
+        changes: dict = {}
         errors = {}
 
         (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
         if is_valid:
-            changes = result
+            changes = dict_merge(self._changes, result)
         else:
             errors = result
 
