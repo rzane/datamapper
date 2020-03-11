@@ -1,6 +1,7 @@
+import pytest
 from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
-from datamapper import Query
+from datamapper import Query, MissingJoinError
 from tests.support import User, to_sql
 
 
@@ -64,3 +65,37 @@ def test_order_by_literal():
 def test_preload():
     query = Query(User).preload("home")
     assert query._preloads == ["home"]
+
+
+def test_join():
+    query = Query(User).join("pets")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
+
+
+def test_duplicate_join():
+    query = Query(User).join("pets").join("pets")
+    sql = to_sql(query.to_sql())
+    assert sql.count("JOIN") == 1
+
+
+def test_nested_join():
+    query = Query(User).join("pets").join("pets.owner")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
+    assert "JOIN users AS u0 ON u0.id = p0.owner_id" in sql
+
+
+def test_nested_join_back():
+    query = Query(User).join("pets").join("pets.owner").join("pets.owner.pets")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
+    assert "JOIN users AS u0 ON u0.id = p0.owner_id" in sql
+    assert "JOIN pets AS p1 ON p1.owner_id = u0.id" in sql
+
+
+def test_missing_join():
+    query = Query(User).join("pets.owner")
+
+    with pytest.raises(MissingJoinError):
+        query.to_sql()

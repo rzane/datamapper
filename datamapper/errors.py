@@ -20,3 +20,7 @@ class MultipleResultsError(Error):
 
 class NotLoadedError(Error):
     pass
+
+
+class MissingJoinError(Error):
+    pass
