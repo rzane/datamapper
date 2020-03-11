@@ -119,3 +119,16 @@ def test_outerjoin_duplicate():
     sql = to_sql(query.to_sql())
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
     assert "LEFT OUTER JOIN pets AS p1 ON p1.owner_id = users.id" in sql
+
+
+def test_join_alias():
+    query = Query(User).join("pets", "p")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p ON p.owner_id = users.id" in sql
+
+
+def test_join_duplicate_with_alias():
+    query = Query(User).join("pets", "p").join("pets")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p ON p.owner_id = users.id" in sql
+    assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql

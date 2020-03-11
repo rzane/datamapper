@@ -82,12 +82,12 @@ class Query:
     def preload(self, preload: str) -> Query:
         return self.__update(_preloads=self._preloads + [preload])
 
-    def join(self, name: str) -> Query:
-        join = Join(self._model, name.split("."))
+    def join(self, name: str, alias: Optional[str] = None) -> Query:
+        join = Join(self._model, name.split("."), alias=alias)
         return self.__update(_joins=self._joins + [join])
 
-    def outerjoin(self, name: str) -> Query:
-        join = Join(self._model, name.split("."), outer=True)
+    def outerjoin(self, name: str, alias: Optional[str] = None) -> Query:
+        join = Join(self._model, name.split("."), alias=alias, outer=True)
         return self.__update(_joins=self._joins + [join])
 
     def __compile(self, sql: ClauseElement) -> ClauseElement:
@@ -159,13 +159,14 @@ def _walk_joins(
     for join, subjoins in tree.items():
         assoc = join.find_association()
 
-        related_table = tracker.alias(assoc.related.__table__)
+        related_table = assoc.related.__table__
+        related_table = tracker.alias(related_table, alias_name=join.alias)
+
         related_column = getattr(related_table.c, assoc.related_key)
         owner_column = getattr(owner_table.c, assoc.owner_key)
 
-        clause = clause.join(
-            related_table, related_column == owner_column, isouter=join.is_outer
-        )
+        on_clause = related_column == owner_column
+        clause = clause.join(related_table, on_clause, isouter=join.is_outer)
         clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause

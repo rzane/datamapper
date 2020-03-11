@@ -1,17 +1,27 @@
 from collections import defaultdict
 from sqlalchemy import Table
-from typing import Dict
+from sqlalchemy.sql.expression import Alias
+from typing import Dict, DefaultDict, Optional
 
 
 class AliasTracker:
-    _counter: Dict[str, int]
+    _aliases: Dict[str, Alias]
+    _counter: DefaultDict[str, int]
 
     def __init__(self) -> None:
+        self._aliases = {}
         self._counter = defaultdict(int)
 
-    def alias(self, table: Table) -> Table:
-        name = table.name[0]
+    def generate(self, name: str) -> str:
         count = self._counter[name]
-        alias = f"{name}{count}"
         self._counter[name] += 1
-        return table.alias(alias)
+        return f"{name}{count}"
+
+    def get(self, alias_name: str) -> Alias:
+        return self._aliases[alias_name]
+
+    def alias(self, table: Table, alias_name: Optional[str] = None) -> Alias:
+        alias_name = alias_name or self.generate(table.name[0])
+        alias = table.alias(alias_name)
+        self._aliases[alias_name] = alias
+        return alias

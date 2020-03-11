@@ -1,15 +1,22 @@
 from __future__ import annotations
-from typing import List, Type, Any, Dict
+from typing import List, Type, Any, Dict, Optional
 import datamapper.model as model
 from datamapper.errors import MissingJoinError
 
 
 class Join:
-    def __init__(self, base: Type[model.Model], path: List[str], outer: bool = False):
+    def __init__(
+        self,
+        base: Type[model.Model],
+        path: List[str],
+        outer: bool = False,
+        alias: Optional[str] = None,
+    ):
         self.base = base
         self.path = path
         self.name = ".".join(self.path)
         self.is_outer = outer
+        self.alias = alias
 
     def find_association(self) -> model.Association:
         assoc = None
@@ -21,11 +28,15 @@ class Join:
         return assoc
 
     def __hash__(self) -> int:
-        return hash((self.name, self.is_outer))
+        return hash((self.name, self.is_outer, self.alias))
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Join):
-            return self.name == other.name and self.is_outer == other.is_outer
+            return (
+                self.name == other.name
+                and self.is_outer == other.is_outer
+                and self.alias == other.alias
+            )
         else:
             return False
 
