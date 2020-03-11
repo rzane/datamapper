@@ -73,6 +73,12 @@ def test_join():
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
 
 
+def test_duplicate_join():
+    query = Query(User).join("pets").join("pets")
+    sql = to_sql(query.to_sql())
+    assert sql.count("JOIN") == 1
+
+
 def test_nested_join():
     query = Query(User).join("pets").join("pets.owner")
     sql = to_sql(query.to_sql())
@@ -80,7 +86,7 @@ def test_nested_join():
     assert "JOIN users AS u0 ON u0.id = p0.owner_id" in sql
 
 
-def test_nested_join_duplicate():
+def test_nested_join_back():
     query = Query(User).join("pets").join("pets.owner").join("pets.owner.pets")
     sql = to_sql(query.to_sql())
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
