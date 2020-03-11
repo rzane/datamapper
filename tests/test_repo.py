@@ -74,8 +74,17 @@ async def test_count():
 
 
 @pytest.mark.asyncio
-async def test_insert():
+async def test_insert_can_take_a_model():
     user = await repo.insert(User, name="Foo")
+    assert isinstance(user, User)
+    assert user.id is not None
+    assert await list_users() == ["Foo"]
+
+
+@pytest.mark.asyncio
+async def test_insert_can_take_a_changeset():
+    changeset = Changeset(User()).cast({"name": "Foo"}, ["name"])
+    user = await repo.insert(changeset)
     assert isinstance(user, User)
     assert user.id is not None
     assert await list_users() == ["Foo"]
@@ -103,17 +112,17 @@ async def test_update():
     assert await list_users() == ["Foo", "Changed Bar"]
 
 
-# @pytest.mark.asyncio
-# async def test_update_belongs_to():
-#     user = await repo.insert(User)
-#     home = await repo.insert(Home)
+@pytest.mark.asyncio
+async def test_update_belongs_to():
+    user = await repo.insert(User)
+    home = await repo.insert(Home)
 
-#     home = await repo.update(home, owner=user)
-#     assert home.owner_id == user.id
-#     assert home.owner.id == user.id
+    home = await repo.update(Changeset(home).change({"owner": user}))
+    assert home.owner_id == user.id
+    assert home.owner.id == user.id
 
-#     home = await repo.get(Home, home.id)
-#     assert home.owner_id == user.id
+    home = await repo.get(Home, home.id)
+    assert home.owner_id == user.id
 
 
 @pytest.mark.asyncio

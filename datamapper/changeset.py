@@ -20,12 +20,12 @@ import collections
 from datamapper.model import Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
-Data = Union[dict, Model, Type[Model]]
+Data = Union[dict, Model]
 
 T = TypeVar("T", dict, Model)
 
 
-class ChangesetData(Generic[T]):
+class ChangesetDataWrapper(Generic[T]):
     def __init__(self, data: T):
         self.data: T = data
 
@@ -137,7 +137,7 @@ class MarshmallowValidator:
 
             return _validate
 
-        field_type: Optional[Type] = self.changeset.field_type(name)
+        field_type: Optional[Type] = self.changeset._field_type(name)
         field_type = (
             self._to_marshmallow_field_type(field_type)
             if field_type is not None
@@ -157,7 +157,7 @@ class Changeset(Generic[T]):
     VALIDATOR_CLASS = MarshmallowValidator
 
     def __init__(self, data: T) -> None:
-        self._data: ChangesetData[T] = ChangesetData(data)
+        self._wrapped_data: ChangesetDataWrapper[T] = ChangesetDataWrapper(data)
 
         self._changes: dict = {}
         self._errors: dict = {}
@@ -181,28 +181,22 @@ class Changeset(Generic[T]):
         self._field_validators[field] = existing_validators + [validator]
         return self
 
-    def permitted_params(self) -> dict:
-        return {k: v for (k, v) in self.params.items() if k in set(self.permitted)}
-
     def change(self, changes: dict) -> Changeset:
         self._changes = dict_merge(self._changes, changes)
         return self
 
     def apply_changes(self) -> T:
-        self._evaluate()
-        return self._data.apply_changes(self.changes)
+        return self._wrapped_data.apply_changes(self.changes)
 
-    def field_type(self, field: str) -> Type:
-        return self._data.field_type(field)
+    def _field_type(self, field: str) -> Type:
+        return self._wrapped_data.field_type(field)
 
     @property
     def has_error(self) -> bool:
-        self._evaluate()
         return bool(self.errors)
 
     @property
     def is_valid(self) -> bool:
-        self._evaluate()
         return not self.has_error
 
     @property
@@ -216,7 +210,7 @@ class Changeset(Generic[T]):
         return self._errors
 
     def __repr__(self) -> str:
-        return f"<Changeset data={self._data.type}>"
+        return f"<Changeset data={self._wrapped_data.type}>"
 
     def _update(self, **kwargs: Any) -> Changeset:
         # Can replace this with an immutable collection library.
@@ -227,7 +221,7 @@ class Changeset(Generic[T]):
 
     @property
     def data(self) -> T:
-        return self._data.data
+        return self._wrapped_data.data
 
     def _evaluate(self) -> None:
         """
