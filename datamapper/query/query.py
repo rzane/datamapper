@@ -117,7 +117,7 @@ class Query:
             # SELECT * FROM pets WHERE (pets.name LIKE '%%' || 'e')
 
             Query(Pet).where(id__in=[1, 2])
-            # SELECT * FROM pets WHERE pets.id in (1, 2)
+            # SELECT * FROM pets WHERE pets.id IN (1, 2)
 
             Query(Pet).where(age__gt=1)
             # SELECT * FROM pets WHERE pets.age > 1

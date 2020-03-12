@@ -29,9 +29,74 @@ def test_where():
     assert "WHERE users.id = 1" in to_sql(query.to_sql())
 
 
+def test_where_eq():
+    query = Query(User).where(name__eq="Sue")
+    assert "WHERE users.name = 'Sue'" in to_sql(query.to_sql())
+
+
+def test_where_not_eq():
+    query = Query(User).where(name__not_eq="Sue")
+    assert "WHERE users.name != 'Sue'" in to_sql(query.to_sql())
+
+
+def test_where_like():
+    query = Query(User).where(name__like="Sue")
+    assert "WHERE users.name LIKE 'Sue'" in to_sql(query.to_sql())
+
+
+def test_where_not_like():
+    query = Query(User).where(name__not_like="Sue")
+    assert "WHERE users.name NOT LIKE 'Sue'" in to_sql(query.to_sql())
+
+
+def test_where_ilike():
+    query = Query(User).where(name__ilike="sue")
+    assert "WHERE users.name ILIKE 'sue'" in to_sql(query.to_sql())
+
+
+def test_where_not_ilike():
+    query = Query(User).where(name__not_ilike="sue")
+    assert "WHERE users.name NOT ILIKE 'sue'" in to_sql(query.to_sql())
+
+
+def test_where_contains():
+    query = Query(User).where(name__contains="u")
+    assert "WHERE (users.name LIKE '%%' || 'u' || '%%')" in to_sql(query.to_sql())
+
+
+def test_where_startswith():
+    query = Query(User).where(name__startswith="S")
+    assert "WHERE (users.name LIKE 'S' || '%%')" in to_sql(query.to_sql())
+
+
+def test_where_endswith():
+    query = Query(User).where(name__endswith="e")
+    assert "WHERE (users.name LIKE '%%' || 'e')" in to_sql(query.to_sql())
+
+
 def test_where_in():
     query = Query(User).where(id__in=[1, 2])
     assert "WHERE users.id IN (1, 2)" in to_sql(query.to_sql())
+
+
+def test_where_gt():
+    query = Query(User).where(id__gt=1)
+    assert "WHERE users.id > 1" in to_sql(query.to_sql())
+
+
+def test_where_gte():
+    query = Query(User).where(id__gte=1)
+    assert "WHERE users.id >= 1" in to_sql(query.to_sql())
+
+
+def test_where_lt():
+    query = Query(User).where(id__lt=1)
+    assert "WHERE users.id < 1" in to_sql(query.to_sql())
+
+
+def test_where_lte():
+    query = Query(User).where(id__lte=1)
+    assert "WHERE users.id <= 1" in to_sql(query.to_sql())
 
 
 def test_multi_where():
