@@ -11,6 +11,7 @@ from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_order, parse_where
 
+SelectClause = Union[ClauseElement, str]
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
 
@@ -18,6 +19,7 @@ OrderClause = Union[ClauseElement, str]
 class Query:
     __slots__ = [
         "_model",
+        "_select",
         "_wheres",
         "_order_bys",
         "_limit",
@@ -27,6 +29,7 @@ class Query:
     ]
 
     _model: Type[model.Model]
+    _select: Optional[SelectClause]
     _wheres: List[WhereClause]
     _order_bys: List[OrderClause]
     _joins: List[Join]
@@ -36,6 +39,7 @@ class Query:
 
     def __init__(self, model: Type[model.Model]):
         self._model = model
+        self._select = None
         self._wheres = []
         self._order_bys = []
         self._joins = []
@@ -57,6 +61,17 @@ class Query:
 
     def deserialize(self, row: Mapping) -> model.Model:
         return self._model.deserialize(row)
+
+    def select(self, value: SelectClause) -> Query:
+        """
+        Specify the `SELECT` clause for the query.
+
+        Examples::
+
+            Query(User).select("id")
+            # SELECT users.id FROM users
+        """
+        return self.__update(_select=value)
 
     def limit(self, value: int) -> Query:
         """
