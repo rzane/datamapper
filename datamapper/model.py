@@ -61,13 +61,6 @@ class Model(metaclass=ModelMeta):
         return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
     @classmethod
-    def column(cls, name: str) -> Column:
-        try:
-            return cls.__attributes__[name]
-        except KeyError:
-            raise errors.UnknownColumnError(cls.__name__, name)
-
-    @classmethod
     def association(cls, name: str) -> Association:
         try:
             return cls.__associations__[name]

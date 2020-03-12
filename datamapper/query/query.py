@@ -1,8 +1,9 @@
 from __future__ import annotations
-import datamapper.model as model
 from typing import Any, List, Mapping, Union, Type, Optional
 from sqlalchemy import Table
-from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
+from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
+import datamapper.model as model
+from datamapper._utils import get_column
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_order, parse_where
@@ -109,7 +110,7 @@ class Query:
                     else:
                         table = self._model.__table__
 
-                    column = getattr(table.columns, name)
+                    column = get_column(table, name)
                     clause = getattr(column, op)(value)
                     sql = sql.where(clause)
 
@@ -136,7 +137,7 @@ class Query:
                 else:
                     table = self._model.__table__
 
-                column = getattr(table.columns, name)
+                column = get_column(table, name)
                 clause = getattr(column, direction)()
                 clauses.append(clause)
 

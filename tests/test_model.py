@@ -2,12 +2,23 @@ import pytest
 from sqlalchemy import Column, Table
 from tests.support import metadata, User, Home
 from datamapper.model import BelongsTo, HasOne, HasMany, Cardinality
-from datamapper.errors import NotLoadedError
+from datamapper.errors import NotLoadedError, UnknownAssociationError
 
 
 def test_init_with_invalid_attribute():
     with pytest.raises(AttributeError, match=r"'User'.*'invalid_attribute'"):
         User(invalid_attribute="Foo")
+
+
+def test_association():
+    assert User.association("pets") == User.__associations__["pets"]
+
+
+def test_association_invalid():
+    message = "association 'crap' does not exist for model 'User'"
+
+    with pytest.raises(UnknownAssociationError, match=message):
+        User.association("crap")
 
 
 def test_getttr():

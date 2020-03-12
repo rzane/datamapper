@@ -3,13 +3,13 @@ class Error(Exception):
 
 
 class UnknownColumnError(Error):
-    def __init__(self, model: str, name: str):
-        super().__init__("column '{name}' does not exist for model '{model}'")
+    def __init__(self, table: str, name: str):
+        super().__init__(f"column '{name}' does not exist for table '{table}'")
 
 
 class UnknownAssociationError(Error):
     def __init__(self, model: str, name: str):
-        super().__init__("association '{name}' does not exist for model '{model}'")
+        super().__init__(f"association '{name}' does not exist for model '{model}'")
 
 
 class UnknownAliasError(Error):
@@ -19,7 +19,7 @@ class UnknownAliasError(Error):
 
 class NoResultsError(Error):
     def __init__(self) -> None:
-        super().__init__("expected at least one result but got none")
+        super().__init__(f"expected at least one result but got none")
 
 
 class MultipleResultsError(Error):
