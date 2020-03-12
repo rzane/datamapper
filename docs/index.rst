@@ -5,16 +5,18 @@ Datamapper is a toolkit for mapping and querying databases.
 
 This library is heavily inspired by Elixir’s `Ecto <https://github.com/elixir-ecto/ecto>`_.
 
-.. module:: datamapper
+API
+---
 
-Repo
-----
+.. currentmodule:: datamapper
+.. autosummary::
+     :toctree: stubs
 
-.. autoclass:: Repo
-   :members:
-
-Query
------
-
-.. autoclass:: Query
-   :members:
+     Model
+     Repo
+     Query
+     Associations
+     BelongsTo
+     HasOne
+     HasMany
+     errors
