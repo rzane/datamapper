@@ -23,7 +23,6 @@ class ModelMeta(ABCMeta):
         assert "__metadata__" in attrs, "__metadata__ is required"
 
         columns = []
-        attributes = {}
         associations = {}
         for key, attr in list(attrs.items()):
             if isinstance(attr, Column):
@@ -32,7 +31,6 @@ class ModelMeta(ABCMeta):
                 if attr.name is None:
                     attr.name = key
 
-                attributes[key] = attr
                 columns.append(attr)
                 attrs.pop(key)
 
@@ -42,7 +40,6 @@ class ModelMeta(ABCMeta):
 
         model = super(ModelMeta, cls).__new__(cls, name, bases, attrs)  # type: ignore
         model.__table__ = Table(model.__tablename__, model.__metadata__, *columns)
-        model.__attributes__ = attributes
         model.__associations__ = associations
 
         for key, assoc in model.__associations__.items():
@@ -61,7 +58,9 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def deserialize(cls, row: Mapping) -> Model:
-        return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
+        names = cls.__table__.columns.keys()
+        values = {name: row.get(name) for name in names}
+        return cls(**values)
 
     @classmethod
     def association(cls, name: str) -> Association:
@@ -78,32 +77,42 @@ class Model(metaclass=ModelMeta):
             return query.Query(binding.__class__).where(id=binding.id)
 
     def __init__(self, **attributes: Any):
+        columns = self.__class__.__table__.columns
+        associations = self.__class__.__associations__
+
         self.attributes: dict = {}
         self.__loaded_associations: dict = {}
 
         for key, value in attributes.items():
-            if key in self.__attributes__ or key in self.__associations__:
+            if key in columns or key in associations:
                 setattr(self, key, value)
             else:
                 self.__raise_invalid_attribute(key)
 
     def __getattr__(self, key: str) -> Any:
-        if key in self.__attributes__:
+        columns = self.__class__.__table__.columns
+        associations = self.__class__.__associations__
+        loaded = self.__loaded_associations
+
+        if key in columns:
             return self.attributes.get(key)
-        elif key in self.__associations__:
-            if key not in self.__loaded_associations:
+        elif key in associations:
+            if key not in loaded:
                 raise NotLoadedError(self.__class__.__name__, key)
-            return self.__loaded_associations[key]
+            return loaded[key]
         else:
             self.__raise_invalid_attribute(key)
 
     def __setattr__(self, key: str, value: Any) -> None:
-        if key in self.__attributes__:
+        columns = self.__class__.__table__.columns
+        associations = self.__class__.__associations__
+
+        if key in columns:
             self.attributes[key] = value
-        elif key in self.__associations__:
+        elif key in associations:
             self.__loaded_associations[key] = value
 
-            assoc = self.__associations__[key]
+            assoc = associations[key]
             if isinstance(assoc, BelongsTo):
                 related_key = getattr(value, assoc.related_key)
                 self.attributes[assoc.owner_key] = related_key
