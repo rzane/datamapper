@@ -65,14 +65,14 @@ class Model(metaclass=ModelMeta):
         try:
             return cls.__attributes__[name]
         except KeyError:
-            raise errors.InvalidColumnError(cls.__name__, name)
+            raise errors.UnknownColumnError(cls.__name__, name)
 
     @classmethod
     def association(cls, name: str) -> Association:
         try:
             return cls.__associations__[name]
         except KeyError:
-            raise errors.InvalidAssociationError(cls.__name__, name)
+            raise errors.UnknownAssociationError(cls.__name__, name)
 
     @hybrid_method
     def to_query(binding: Union[Type[Model], Model]) -> query.Query:

@@ -1,24 +1,12 @@
 from __future__ import annotations
 import datamapper.model as model
-from datamapper.query.alias_tracker import AliasTracker
-from datamapper.query.join import Join, to_join_tree
-from typing import Any, List, Mapping, Optional, Union, Tuple, Type
+from typing import Any, List, Mapping, Union, Type, Optional
 from sqlalchemy import Table
 from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
+from datamapper.query.alias_tracker import AliasTracker
+from datamapper.query.join import Join, to_join_tree
+from datamapper.query.parser import parse_order, parse_where
 
-
-SEPARATOR = "__"
-OPERATIONS = {
-    "exact": "__eq__",
-    "iexact": "ilike",
-    "contains": "like",
-    "icontains": "ilike",
-    "in": "in_",
-    "gt": "__gt__",
-    "gte": "__ge__",
-    "lt": "__lt__",
-    "lte": "__le__",
-}
 
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
@@ -114,12 +102,20 @@ class Query:
         for where in self._wheres:
             if isinstance(where, dict):
                 for name, value in where.items():
-                    name, op = _parse_where(name)
-                    column = self._model.column(name)
+                    name, op, alias_name = parse_where(name)
+
+                    if alias_name:
+                        table = tracker.fetch(alias_name)
+                    else:
+                        table = self._model.__table__
+
+                    column = getattr(table.columns, name)
                     clause = getattr(column, op)(value)
                     sql = sql.where(clause)
+
             else:
                 sql = sql.where(where)
+
         return sql
 
     def __build_joins(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
@@ -130,17 +126,23 @@ class Query:
 
     def __build_order(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         clauses = []
+
         for order_by in self._order_bys:
             if isinstance(order_by, str):
-                direction = "asc"
-                if order_by[0] == "-":
-                    direction = "desc"
-                    order_by = order_by[1:]
-                column = self._model.column(order_by)
+                name, direction, alias_name = parse_order(order_by)
+
+                if alias_name:
+                    table = tracker.fetch(alias_name)
+                else:
+                    table = self._model.__table__
+
+                column = getattr(table.columns, name)
                 clause = getattr(column, direction)()
                 clauses.append(clause)
+
             else:
                 clauses.append(order_by)
+
         return sql.order_by(*clauses)
 
     def __update(self, **kwargs: Any) -> Query:
@@ -160,7 +162,7 @@ def _walk_joins(
         assoc = join.find_association()
 
         related_table = assoc.related.__table__
-        related_table = tracker.alias(related_table, alias_name=join.alias)
+        related_table = tracker.put(related_table, alias_name=join.alias)
 
         related_column = getattr(related_table.c, assoc.related_key)
         owner_column = getattr(owner_table.c, assoc.owner_key)
@@ -170,13 +172,3 @@ def _walk_joins(
         clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause
-
-
-def _parse_where(name: str) -> Tuple[str, str]:
-    op = "__eq__"
-    parts = name.split(SEPARATOR)
-    name = parts.pop()
-    if name in OPERATIONS:
-        op = OPERATIONS[name]
-        name = parts.pop()
-    return (name, op)
