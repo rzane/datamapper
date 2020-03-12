@@ -1,23 +1,25 @@
 from __future__ import annotations
+
+import collections
+from copy import copy
 from typing import (
     Any,
+    Callable,
+    Dict,
+    Generic,
     List,
     Mapping,
-    Type,
     Optional,
     Tuple,
-    Callable,
-    Union,
-    Dict,
+    Type,
     TypeVar,
-    Generic,
+    Union,
 )
-from marshmallow import Schema, fields, ValidationError
-import sqlalchemy
-from copy import copy
-import collections
 
-from datamapper.model import Model, BelongsTo, Association
+import sqlalchemy
+from marshmallow import Schema, ValidationError, fields
+
+from datamapper.model import Association, BelongsTo, Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
 Data = Union[dict, Model]
@@ -33,16 +35,14 @@ class ChangesetDataWrapper(Generic[T]):
         if isinstance(self.data, dict):
             return dict_merge(self.data, changes)
         elif isinstance(self.data, Model):
-            inst = copy(self.data)
-            for k, v in changes.items():
-                setattr(inst, k, v)
-            return inst
+            attrs = {**self.data.values(), **changes}
+            return type(self.data)(**attrs)
         else:
             return self.data(**changes)
 
     def field_type(self, field: str) -> Type:
         if isinstance(self.data, Model):
-            column = self.data.__attributes__.get(field)
+            column = self.data.__table__.columns.get(field)
             return column.type if column is not None else None
         else:
             return type(self.data.get(field))

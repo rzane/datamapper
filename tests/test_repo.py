@@ -1,8 +1,8 @@
 import pytest
 
 from datamapper import Query, Repo
-from tests.support import Home, Pet, User, database
 from datamapper.changeset import Changeset
+from tests.support import Home, Pet, User, database
 
 repo = Repo(database)
 

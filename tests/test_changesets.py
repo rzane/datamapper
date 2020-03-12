@@ -1,20 +1,24 @@
 import pytest
-from sqlalchemy import Column, BigInteger, String
+from sqlalchemy import BigInteger, Column, String
 
-from tests.support import metadata, User, Home
-from datamapper.model import Model, HasOne, HasMany
 from datamapper.changeset import Changeset
+from datamapper.model import Associations, HasMany, HasOne, Model, Table
+from tests.support import Home, User, metadata
 
 
 class Person(Model):
-    __tablename__ = "people"
-    __metadata__ = metadata
+    __table__ = Table(
+        "people",
+        metadata,
+        Column("id", BigInteger, primary_key=True),
+        Column("name", String),
+        Column("age", BigInteger),
+    )
 
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String)
-    age = Column(BigInteger)
-    home = HasOne("tests.support.Home", "owner_id")
-    pets = HasMany("tests.support.Pet", "owner_id")
+    __associations__ = Associations(
+        HasOne("home", "tests.support.Home", "owner_id"),
+        HasMany("pets", "tests.support.Pet", "owner_id"),
+    )
 
 
 def is_30(age):

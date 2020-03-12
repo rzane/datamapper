@@ -1,9 +1,11 @@
 from __future__ import annotations
-import datamapper.model as model
-from typing import Any, List, Mapping, Optional, Union, Tuple, Type
-from sqlalchemy import Column, join, Table
-from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, Join
 
+from typing import Any, List, Mapping, Optional, Tuple, Type, Union
+
+from sqlalchemy import Column, Table, join
+from sqlalchemy.sql.expression import ClauseElement, Delete, Join, Select, Update
+
+import datamapper.model as model
 
 SEPARATOR = "__"
 OPERATIONS = {

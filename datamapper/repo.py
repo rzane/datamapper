@@ -5,8 +5,8 @@ from sqlalchemy import func
 from typing_extensions import Protocol
 
 from datamapper._utils import assert_one, to_list, to_tree
-from datamapper.model import Association, Cardinality, Model
 from datamapper.changeset import Changeset
+from datamapper.model import Association, Cardinality, Model
 from datamapper.query import Query
 
 
