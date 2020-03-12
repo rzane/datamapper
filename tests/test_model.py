@@ -55,10 +55,6 @@ def test_getattr_association_not_loaded():
         User().home
 
 
-def test_tablename():
-    assert User.__tablename__ == "users"
-
-
 def test_table():
     assert isinstance(User.__table__, Table)
     assert isinstance(User.__table__.c.id, Column)
@@ -68,7 +64,8 @@ def test_table():
 
 
 def test_belongs_to():
-    assoc = BelongsTo(User, "user_id")
+    assoc = BelongsTo("user", User, "user_id")
+    assert assoc.name == "user"
     assert assoc.related == User
     assert assoc.owner_key == "user_id"
     assert assoc.related_key == "id"
@@ -77,7 +74,8 @@ def test_belongs_to():
 
 
 def test_has_one():
-    assoc = HasOne(User, "user_id")
+    assoc = HasOne("user", User, "user_id")
+    assert assoc.name == "user"
     assert assoc.related == User
     assert assoc.owner_key == "id"
     assert assoc.related_key == "user_id"
@@ -86,7 +84,8 @@ def test_has_one():
 
 
 def test_has_many():
-    assoc = HasMany(User, "user_id")
+    assoc = HasMany("user", User, "user_id")
+    assert assoc.name == "user"
     assert assoc.related == User
     assert assoc.owner_key == "id"
     assert assoc.related_key == "user_id"
@@ -95,5 +94,5 @@ def test_has_many():
 
 
 def test_assoc_related_to_string():
-    assoc = BelongsTo("tests.support.User", "user_id")
+    assoc = BelongsTo("user", "tests.support.User", "user_id")
     assert assoc.related == User

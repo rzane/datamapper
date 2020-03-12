@@ -1,60 +1,33 @@
 from __future__ import annotations
 
-from abc import ABCMeta
-from enum import Enum
-from importlib import import_module
-from typing import Any, Mapping, Sequence, Type, Union, cast
+import enum
+import importlib
+from typing import Any, Iterator, Mapping, Type, Union, cast
 
-from sqlalchemy import Column, MetaData, Table
+from sqlalchemy import Table
 from sqlalchemy.ext.hybrid import hybrid_method
 
 import datamapper.query as query
 from datamapper.errors import NotLoadedError, UnknownAssociationError
 
 
-class ModelMeta(ABCMeta):
-    def __new__(
-        cls: type, name: str, bases: Sequence[type], attrs: dict
-    ) -> "ModelMeta":
-        if attrs.get("__abstract__"):
-            return super(ModelMeta, cls).__new__(cls, name, bases, attrs)  # type: ignore
+class Associations(Mapping[str, "Association"]):
+    def __init__(self, *associations: Association):
+        self.__dict__.update(**{assoc.name: assoc for assoc in associations})
 
-        assert "__tablename__" in attrs, "__tablename__ is required"
-        assert "__metadata__" in attrs, "__metadata__ is required"
+    def __getitem__(self, key: str) -> Association:
+        return self.__dict__[key]
 
-        columns = []
-        associations = {}
-        for key, attr in list(attrs.items()):
-            if isinstance(attr, Column):
-                if attr.key is None:
-                    attr.key = key
-                if attr.name is None:
-                    attr.name = key
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.__dict__)
 
-                columns.append(attr)
-                attrs.pop(key)
-
-            if isinstance(attr, Association):
-                associations[key] = attr
-                attrs.pop(key)
-
-        model = super(ModelMeta, cls).__new__(cls, name, bases, attrs)  # type: ignore
-        model.__table__ = Table(model.__tablename__, model.__metadata__, *columns)
-        model.__associations__ = associations
-
-        for key, assoc in model.__associations__.items():
-            assoc.name = key
-            assoc.owner = model
-
-        return model
+    def __len__(self) -> int:
+        return len(self.__dict__)
 
 
-class Model(metaclass=ModelMeta):
-    __abstract__ = True
+class Model:
     __table__: Table
-    __metadata__: MetaData
-    __attributes__: Mapping[str, Column]
-    __associations__: Mapping[str, "Association"]
+    __associations__: Associations = Associations()
 
     @classmethod
     def deserialize(cls, row: Mapping) -> Model:
@@ -125,7 +98,7 @@ class Model(metaclass=ModelMeta):
         )
 
 
-class Cardinality(Enum):
+class Cardinality(enum.Enum):
     ONE = "one"
     MANY = "many"
 
@@ -137,10 +110,12 @@ class Association:
 
     def __init__(
         self,
+        name: str,
         related: Union[str, Type[Model]],
         foreign_key: str,
         primary_key: str = "id",
     ):
+        self.name = name
         self._related = related
         self._foreign_key = foreign_key
         self._primary_key = primary_key
@@ -149,7 +124,8 @@ class Association:
     def related(self) -> Type[Model]:
         if isinstance(self._related, str):
             mod, name = self._related.rsplit(".", 1)
-            self._related = getattr(import_module(mod), name)
+            mod = importlib.import_module(mod)
+            self._related = getattr(mod, name)
         return cast(Type[Model], self._related)
 
     @property

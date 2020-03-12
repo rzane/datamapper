@@ -1,10 +1,10 @@
 import os
 
 from databases import Database
-from sqlalchemy import BigInteger, Column, ForeignKey, MetaData, String
+from sqlalchemy import BigInteger, Column, ForeignKey, MetaData, String, Table
 from sqlalchemy.dialects import postgresql
 
-from datamapper import BelongsTo, HasMany, HasOne, Model
+from datamapper import Associations, BelongsTo, HasMany, HasOne, Model
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datamapper")
 
@@ -14,33 +14,41 @@ database = Database(DATABASE_URL, force_rollback=True)
 
 
 class User(Model):
-    __tablename__ = "users"
-    __metadata__ = metadata
+    __table__ = Table(
+        "users",
+        metadata,
+        Column("id", BigInteger, primary_key=True),
+        Column("name", String),
+    )
 
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String)
-    home = HasOne("tests.support.Home", "owner_id")
-    pets = HasMany("tests.support.Pet", "owner_id")
+    __associations__ = Associations(
+        HasOne("home", "tests.support.Home", "owner_id"),
+        HasMany("pets", "tests.support.Pet", "owner_id"),
+    )
 
 
 class Home(Model):
-    __tablename__ = "homes"
-    __metadata__ = metadata
+    __table__ = Table(
+        "homes",
+        metadata,
+        Column("id", BigInteger, primary_key=True),
+        Column("name", String),
+        Column("owner_id", BigInteger, ForeignKey("users.id")),
+    )
 
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String)
-    owner_id = Column(BigInteger, ForeignKey("users.id"))
-    owner = BelongsTo("tests.support.User", "owner_id")
+    __associations__ = Associations(BelongsTo("owner", User, "owner_id"))
 
 
 class Pet(Model):
-    __tablename__ = "pets"
-    __metadata__ = metadata
+    __table__ = Table(
+        "pets",
+        metadata,
+        Column("id", BigInteger, primary_key=True),
+        Column("name", String),
+        Column("owner_id", BigInteger, ForeignKey("users.id")),
+    )
 
-    id = Column(BigInteger, primary_key=True)
-    name = Column(String)
-    owner_id = Column(BigInteger, ForeignKey("users.id"))
-    owner = BelongsTo("tests.support.User", "owner_id")
+    __associations__ = Associations(BelongsTo("owner", User, "owner_id"))
 
 
 def to_sql(statement):
