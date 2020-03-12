@@ -19,7 +19,7 @@ class Repo:
     A `Repo` is used to dispatch queries to the database.
 
     To communicate with the database, `Repo` uses the
-    `databases <https://github.com/encode/databases>`_ package.
+    `databases <https://www.encode.io/databases/>`_ package.
 
     Example::
 
