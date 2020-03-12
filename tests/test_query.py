@@ -1,8 +1,9 @@
 import pytest
 from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
-from datamapper import Query, MissingJoinError
 from tests.support import User, to_sql
+from datamapper import Query
+from datamapper.errors import MissingJoinError
 
 
 def test_to_sql():
