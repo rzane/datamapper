@@ -1,8 +1,9 @@
 import pytest
 from sqlalchemy import Column
+
+from datamapper._utils import assert_one, get_column, to_list, to_tree
+from datamapper.errors import MultipleResultsError, NoResultsError, UnknownColumnError
 from tests.support import User
-from datamapper._utils import assert_one, to_list, to_tree, get_column
-from datamapper.errors import NoResultsError, MultipleResultsError, UnknownColumnError
 
 
 def test_assert_one():

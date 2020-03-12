@@ -1,7 +1,9 @@
 import logging
+
 from IPython import start_ipython
-from datamapper import Repo, Query
-from tests.support import database, User, Pet, Home
+
+from datamapper import Query, Repo
+from tests.support import Home, Pet, User, database
 
 logging.basicConfig(level=logging.DEBUG)
 

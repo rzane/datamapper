@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy.sql.expression import Alias
+
 from datamapper.errors import ConflictingAliasError, UnknownAliasError
 from datamapper.query.alias_tracker import AliasTracker
 from tests.support import User

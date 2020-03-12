@@ -1,10 +1,12 @@
-from typing import Any, Type, Union, List, Optional
-from typing_extensions import Protocol
-from sqlalchemy import func
+from typing import Any, List, Optional, Type, Union
+
 from databases import Database
+from sqlalchemy import func
+from typing_extensions import Protocol
+
+from datamapper._utils import assert_one, to_list, to_tree
+from datamapper.model import Association, Cardinality, Model
 from datamapper.query import Query
-from datamapper.model import Model, Association, Cardinality
-from datamapper._utils import to_list, to_tree, assert_one
 
 
 class Queryable(Protocol):

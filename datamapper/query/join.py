@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import List, Type, Any, Dict, Optional
+
+from typing import Any, Dict, List, Optional, Type
+
 import datamapper.model as model
 from datamapper.errors import MissingJoinError
 

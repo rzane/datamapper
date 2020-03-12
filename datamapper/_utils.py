@@ -1,7 +1,9 @@
-from typing import TypeVar, List, Union
+from typing import List, TypeVar, Union
+
 from sqlalchemy import Column, Table
 from sqlalchemy.sql.expression import Alias
-from datamapper.errors import NoResultsError, MultipleResultsError, UnknownColumnError
+
+from datamapper.errors import MultipleResultsError, NoResultsError, UnknownColumnError
 
 T = TypeVar("T")
 

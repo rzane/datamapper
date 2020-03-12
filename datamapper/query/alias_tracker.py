@@ -1,7 +1,9 @@
 from collections import defaultdict
+from typing import DefaultDict, Dict, Optional
+
 from sqlalchemy import Table
 from sqlalchemy.sql.expression import Alias
-from typing import Dict, DefaultDict, Optional
+
 from datamapper.errors import ConflictingAliasError, UnknownAliasError
 
 
