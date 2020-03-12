@@ -17,7 +17,7 @@ import sqlalchemy
 from copy import copy
 import collections
 
-from datamapper.model import Model
+from datamapper.model import Model, BelongsTo, Association
 
 FieldValidator = Callable[[Any], Union[bool, str]]
 Data = Union[dict, Model]
@@ -46,6 +46,12 @@ class ChangesetDataWrapper(Generic[T]):
             return column.type if column is not None else None
         else:
             return type(self.data.get(field))
+
+    def association(self, field: str) -> Association:
+        if not isinstance(self.data, Model):
+            raise ValueError("Data of type dict has no associations")
+
+        return self.data.association(field)
 
     @property
     def type(self) -> Type:
@@ -170,6 +176,13 @@ class Changeset(Generic[T]):
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
         permitted_params = {k: v for (k, v) in params.items() if k in permitted}
         return self._update(params=permitted_params, permitted=permitted)
+
+    def put_assoc(self, name: str, value: Any) -> Changeset:
+        assoc = self._wrapped_data.association(name)
+        if isinstance(assoc, BelongsTo):
+            return self.change(assoc.values(value))
+        else:
+            raise NotImplementedError()
 
     def validate_required(self, fields: List) -> Changeset:
         for f in fields:

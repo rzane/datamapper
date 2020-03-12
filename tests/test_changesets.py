@@ -1,7 +1,9 @@
-from tests.support import metadata, User
+import pytest
+from sqlalchemy import Column, BigInteger, String
+
+from tests.support import metadata, User, Home
 from datamapper.model import Model, HasOne, HasMany
 from datamapper.changeset import Changeset
-from sqlalchemy import Column, BigInteger, String
 
 
 class Person(Model):
@@ -35,6 +37,26 @@ def test_cast():
 def test_cast_type_check():
     changeset = Changeset(User()).cast({"name": 1}, ["name"])
     assert changeset.errors == {"name": ["Not a valid string."]}
+
+
+def test_put_assoc():
+    user = User(id=1, name="Bear")
+    changeset = (
+        Changeset(Home())
+        .cast({"name": "Big Blue House"}, ["name"])
+        .put_assoc("owner", user)
+    )
+    assert changeset.changes == {"owner_id": 1, "name": "Big Blue House"}
+
+
+def test_put_assoc_with_dict_data_is_invalid():
+    user = User(id=1, name="Bear")
+    with pytest.raises(ValueError):
+        (
+            Changeset({})
+            .cast({"name": "Big Blue House"}, ["name"])
+            .put_assoc("owner", user)
+        )
 
 
 def test_validate_required():
