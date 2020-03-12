@@ -1,3 +1,4 @@
+import datamapper.errors as errors
 from datamapper.model import Associations, BelongsTo, HasMany, HasOne, Model
 from datamapper.query import Query
 from datamapper.repo import Repo
@@ -12,4 +13,5 @@ __all__ = [
     "Model",
     "Query",
     "Repo",
+    "errors",
 ]
