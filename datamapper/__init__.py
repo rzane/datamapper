@@ -1,4 +1,4 @@
-from datamapper.model import Model, BelongsTo, HasOne, HasMany
+from datamapper.model import BelongsTo, HasMany, HasOne, Model
 from datamapper.query import Query
 from datamapper.repo import Repo
 

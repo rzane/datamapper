@@ -1,12 +1,15 @@
 from __future__ import annotations
-from enum import Enum
+
 from abc import ABCMeta
+from enum import Enum
 from importlib import import_module
-from typing import Any, Sequence, Mapping, Union, Type, cast
-from sqlalchemy import Table, Column, MetaData
+from typing import Any, Mapping, Sequence, Type, Union, cast
+
+from sqlalchemy import Column, MetaData, Table
 from sqlalchemy.ext.hybrid import hybrid_method
+
 import datamapper.query as query
-from datamapper.errors import UnknownAssociationError, NotLoadedError
+from datamapper.errors import NotLoadedError, UnknownAssociationError
 
 
 class ModelMeta(ABCMeta):

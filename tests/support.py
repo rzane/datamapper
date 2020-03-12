@@ -1,9 +1,10 @@
 import os
-from datamapper import Model, BelongsTo, HasOne, HasMany
+
 from databases import Database
-from sqlalchemy import MetaData, Column, BigInteger, String, ForeignKey
+from sqlalchemy import BigInteger, Column, ForeignKey, MetaData, String
 from sqlalchemy.dialects import postgresql
 
+from datamapper import BelongsTo, HasMany, HasOne, Model
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datamapper")
 

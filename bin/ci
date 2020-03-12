@@ -12,13 +12,14 @@ say "==>> Installing dependencies..."
 poetry install -n
 
 say "\n==>> Checking formatting..."
+poetry run isort --check
 poetry run black --check .
 
-say "\n==>> Running the linter..."
+say "\n==>> Linting..."
 poetry run flake8 datamapper
 
-say "\n==>> Running the typechecker..."
+say "\n==>> Typechecking..."
 poetry run mypy datamapper tests --pretty
 
-say "\n==>> Running the test suite..."
+say "\n==>> Testing..."
 poetry run pytest --cov datamapper

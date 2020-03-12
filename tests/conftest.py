@@ -1,7 +1,8 @@
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy_utils import create_database, drop_database, database_exists
-from tests.support import DATABASE_URL, metadata, database
+from sqlalchemy_utils import create_database, database_exists, drop_database
+
+from tests.support import DATABASE_URL, database, metadata
 
 
 @pytest.fixture(scope="session", autouse=True)

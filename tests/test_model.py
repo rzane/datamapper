@@ -1,8 +1,9 @@
 import pytest
 from sqlalchemy import Column, Table
-from tests.support import metadata, User, Home
-from datamapper.model import BelongsTo, HasOne, HasMany, Cardinality
+
 from datamapper.errors import NotLoadedError, UnknownAssociationError
+from datamapper.model import BelongsTo, Cardinality, HasMany, HasOne
+from tests.support import Home, User, metadata
 
 
 def test_init_with_invalid_attribute():

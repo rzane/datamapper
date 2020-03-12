@@ -1,7 +1,8 @@
 import pytest
+
 from datamapper.errors import MissingJoinError
 from datamapper.query.join import Join, to_join_tree
-from tests.support import User, Pet
+from tests.support import Pet, User
 
 
 def test_join() -> None:

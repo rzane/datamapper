@@ -1,6 +1,7 @@
 import pytest
-from datamapper import Repo, Query
-from tests.support import database, User, Home, Pet
+
+from datamapper import Query, Repo
+from tests.support import Home, Pet, User, database
 
 repo = Repo(database)
 

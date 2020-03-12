@@ -1,13 +1,15 @@
 from __future__ import annotations
-from typing import Any, List, Mapping, Union, Type, Optional
+
+from typing import Any, List, Mapping, Optional, Type, Union
+
 from sqlalchemy import Table
 from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
+
 import datamapper.model as model
 from datamapper._utils import get_column
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_order, parse_where
-
 
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
