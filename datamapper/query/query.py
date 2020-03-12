@@ -59,25 +59,176 @@ class Query:
         return self._model.deserialize(row)
 
     def limit(self, value: int) -> Query:
+        """
+        Add a `LIMIT` clause to the query.
+
+        Examples::
+
+            Query(User).limit(1)
+            # SELECT * FROM users LIMIT 1
+        """
         return self.__update(_limit=value)
 
     def offset(self, value: int) -> Query:
+        """
+        Add an `OFFSET` clause to the query.
+
+        Examples::
+
+            Query(User).offset(1)
+            # SELECT * FROM users OFFSET 1
+        """
         return self.__update(_offset=value)
 
     def where(self, *args: ClauseElement, **kwargs: Any) -> Query:
+        """
+        Add a `WHERE` clause to the query.
+
+        Examples::
+
+            Query(Pet).where(name="Fido")
+            # SELECT * FROM pets WHERE pets.name = 'Fido'
+
+            Query(Pet).where(name__eq="Sue")
+            # SELECT * FROM pets WHERE pets.name = 'Sue'
+
+            Query(Pet).where(name__not_eq="Sue")
+            # SELECT * FROM pets WHERE pets.name != 'Sue'
+
+            Query(Pet).where(name__like="Sue")
+            # SELECT * FROM pets WHERE pets.name LIKE 'Sue'
+
+            Query(Pet).where(name__not_like="Sue")
+            # SELECT * FROM pets WHERE pets.name NOT LIKE 'Sue'
+
+            Query(Pet).where(name__ilike="sue")
+            # SELECT * FROM pets WHERE pets.name ILIKE 'sue'
+
+            Query(Pet).where(name__not_ilike="sue")
+            # SELECT * FROM pets WHERE pets.name NOT ILIKE 'sue'
+
+            Query(Pet).where(name__contains="u")
+            # SELECT * FROM pets WHERE (pets.name LIKE '%%' || 'u' || '%%')
+
+            Query(Pet).where(name__startswith="S")
+            # SELECT * FROM pets WHERE (pets.name LIKE 'S' || '%%')
+
+            Query(Pet).where(name__endswith="e")
+            # SELECT * FROM pets WHERE (pets.name LIKE '%%' || 'e')
+
+            Query(Pet).where(id__in=[1, 2])
+            # SELECT * FROM pets WHERE pets.id in (1, 2)
+
+            Query(Pet).where(age__gt=1)
+            # SELECT * FROM pets WHERE pets.age > 1
+
+            Query(Pet).where(age__gte=1)
+            # SELECT * FROM pets WHERE pets.age >= 1
+
+            Query(Pet).where(age__lt=1)
+            # SELECT * FROM pets WHERE pets.age < 1
+
+            Query(Pet).where(age__lte=1)
+            # SELECT * FROM pets WHERE pets.age <= 1
+
+        You can query a joined table by it's alias.::
+
+            Query(Pet).join("owner", "o").where(o__name="Fred")
+            # SELECT * FROM pets
+            # JOIN owner AS o ON o.id = pets.owner_id
+            # WHERE o.name = 'Fred'
+
+            Query(Pet).outerjoin("owner", "o").where(o__id__in=[1, 2])
+            # SELECT * FROM pets
+            # LEFT JOIN owner AS o ON o.id = pets.owner_id
+            # WHERE o.id IN (1, 2)
+
+        You can also provide a SQLAlchemy clause::
+
+            Query(User).where(sqlalchemy.text("1 = 1"))
+            # SELECT * FROM users WHERE 1 = 1
+
+            Query(User).where(User.__table__.c.id == 9)
+            # SELECT * FROM users WHERE users.id = 9
+        """
         return self.__update(_wheres=self._wheres + list(args) + [kwargs])
 
     def order_by(self, *args: Union[str, ClauseElement]) -> Query:
+        """
+        Add an `ORDER BY` clause to the query.
+
+        Examples::
+
+            Query(User).order_by("name")
+            # SELECT * FROM users ORDER BY users.name ASC
+
+            Query(User).order_by("-name")
+            # SELECT * FROM users ORDER BY users.name DESC
+
+        You can order by a joined column by it's alias::
+
+            Query(User).join("pets", "p").order_by("p__name__desc")
+            # SELECT * FROM users
+            # JOIN pets AS p ON pets.owner_id = users.id
+            # ORDER BY p.name DESC
+
+        You can also provide a SQLAlchemy clause::
+
+            Query(User).order_by(User.__table__.c.id.asc())
+            # SELECT * FROM users ORDER BY users.id ASC
+
+        """
         return self.__update(_order_bys=self._order_bys + list(args))
 
     def preload(self, preload: str) -> Query:
+        """
+        Load records that are associated with this query's results.
+
+        Examples::
+
+            query = User(Author).preload("posts.comments")
+            authors = await repo.all(query)
+            authors[0].posts[0].comments
+        """
         return self.__update(_preloads=self._preloads + [preload])
 
     def join(self, name: str, alias: Optional[str] = None) -> Query:
+        """
+        Add a `JOIN` clause to the query.
+
+        Examples::
+
+            Query(Author).join("posts").join("posts.comments")
+            # SELECT * FROM authors
+            # JOIN posts AS p0 ON p0.author_id = authors.id
+            # JOIN comments AS c0 ON c0.post_id = posts.id
+
+        You can also specify an alias for the join::
+
+            Query(Author).join("posts", "my_posts")
+            # SELECT * FROM authors
+            # JOIN posts AS my_posts ON my_posts.author_id = authors.id
+        """
         join = Join(self._model, name.split("."), alias=alias)
         return self.__update(_joins=self._joins + [join])
 
     def outerjoin(self, name: str, alias: Optional[str] = None) -> Query:
+        """
+        Add a `JOIN` clause to the query.
+
+        Examples::
+
+            Query(Author).join("posts").outerjoin("posts.comments")
+            # SELECT * FROM authors
+            # JOIN posts AS p0 ON p0.author_id = authors.id
+            # LEFT JOIN comments AS c0 ON c0.post_id = posts.id
+
+        You can also specify an alias for the join::
+
+            Query(Author).outerjoin("posts", "my_posts")
+            # SELECT * FROM authors
+            # LEFT JOIN posts AS my_posts ON my_posts.author_id = authors.id
+        """
         join = Join(self._model, name.split("."), alias=alias, outer=True)
         return self.__update(_joins=self._joins + [join])
 

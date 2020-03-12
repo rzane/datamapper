@@ -15,10 +15,34 @@ class Queryable(Protocol):
 
 
 class Repo:
+    """
+    A `Repo` is used to dispatch queries to the database.
+
+    To communicate with the database, `Repo` uses the
+    `databases <https://github.com/encode/databases>`_ package.
+
+    Example::
+
+        import databases
+        import datamapper
+
+        database_url = os.environ["DATABASE_URL"]
+        database = databases.Database(database_url)
+        repo = datamapper.Repo(database)
+    """
+
     def __init__(self, database: Database):
         self.database = database
 
     async def all(self, queryable: Queryable) -> List[Model]:
+        """
+        Fetches all entries from the database matching the given query.
+
+        Examples::
+
+            await repo.all(User)
+            await repo.all(Query(User).where(name="Fred"))
+        """
         query = queryable.to_query()
         rows = await self.database.fetch_all(query.to_sql())
         records = [query.deserialize(row) for row in rows]
@@ -29,34 +53,92 @@ class Repo:
         return records
 
     async def first(self, queryable: Queryable) -> Optional[Model]:
+        """
+        Fetches a single result from the query. Returns `None` if no result was found.
+
+        Examples::
+
+            await repo.first(User)
+            await repo.first(Query(User).order_by("name"))
+        """
         query = queryable.to_query().limit(1)
         records = await self.all(query)
         return records[0] if records else None
 
     async def one(self, queryable: Queryable) -> Model:
+        """
+        Fetches a single result from the query. Raises `NoResultsError` when
+        no results are found. Raises `MultipleResultsError` when more than one
+        result is found.
+
+        Examples::
+
+            await repo.one(Query(User).where(id=1))
+        """
         records = await self.all(queryable)
         assert_one(records)
         return records[0]
 
     async def get_by(self, queryable: Queryable, **values: Any) -> Model:
+        """
+        Similar to `get`, but allows to query a field other than ID.
+
+        Examples::
+
+            await repo.get_by(User, name="Fred")
+        """
         return await self.one(queryable.to_query().where(**values))
 
     async def get(self, queryable: Queryable, id: Union[str, int]) -> Model:
+        """
+        Fetches a single result by it's primary key. Raises `NoResultsError`
+        when no results are found. Raises `MultipleResultsError` when more than
+        one result is found.
+
+        than ID.
+
+        Examples::
+
+            await repo.get_by(User, name="Fred")
+        """
         return await self.one(queryable.to_query().where(id=id))
 
     async def count(self, queryable: Queryable) -> int:
+        """
+        Get a count of the number of results in the query.
+
+        Examples::
+
+            await repo.count(User)
+            await repo.count(Query(User).where(name="Fred"))
+        """
         sql = queryable.to_query().to_sql()
         sql = sql.alias("subquery_for_count")
         sql = func.count().select().select_from(sql)
         return await self.database.fetch_val(sql)
 
     async def insert(self, model: Type[Model], **values: Any) -> Model:
+        """
+        Insert a record into the database.
+
+        Examples::
+
+            await repo.insert(User, name="Fred")
+        """
         sql_values = _collect_sql_values(model, values)
         sql = model.__table__.insert().values(**sql_values)
         record_id = await self.database.execute(sql)
         return model(id=record_id, **values)
 
     async def update(self, record: Model, **values: Any) -> Model:
+        """
+        Update a record in the database.
+
+        Examples::
+
+            user = await repo.get(User, 1)
+            await repo.update(user, name="Fred")
+        """
         query = record.to_query()
         sql_values = _collect_sql_values(record, values)
         sql = query.to_update_sql().values(**sql_values)
@@ -66,18 +148,42 @@ class Repo:
         return record
 
     async def delete(self, record: Model, **values: Any) -> Model:
+        """
+        Delete a record from the database.
+
+        Examples::
+
+            user = await repo.get(User, 1)
+            await repo.delete(user)
+        """
         query = record.to_query()
         sql = query.to_delete_sql()
         await self.database.execute(sql)
         return record
 
     async def update_all(self, queryable: Queryable, **values: Any) -> None:
+        """
+        Update all entries matching the given query.
+
+        Examples::
+
+            await repo.update_all(User, name="Fred")
+            await repo.update_all(Query(User).where(name="Fred"), name="Freddy")
+        """
         query = queryable.to_query()
         sql = query.to_update_sql()
         sql = sql.values(**values)
         await self.database.execute(sql)
 
     async def delete_all(self, queryable: Queryable) -> None:
+        """
+        Delete all entries matching the given query.
+
+        Examples::
+
+            await repo.delete_all(User)
+            await repo.delete_all(Query(User).where(name="Fred"))
+        """
         query = queryable.to_query()
         sql = query.to_delete_sql()
         await self.database.execute(sql)
@@ -85,6 +191,17 @@ class Repo:
     async def preload(
         self, records: Union[Model, List[Model]], preloads: List[str]
     ) -> None:
+        """
+        Loads associations for the given record or records.
+
+        This is similar to `Query.preload` except it allows you to preload
+        associations after records have been fetched from the database.
+
+        Examples::
+
+            authors = await repo.all(Author)
+            await repo.preload(authors, ["biography", "posts.comments"])
+        """
         records = to_list(records)
         preloads = to_tree(to_list(preloads))
         await self.__preload(records, preloads)

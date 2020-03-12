@@ -6,10 +6,15 @@ MINUS = "-"
 SEPARATOR = "__"
 EQUALS = "__eq__"
 OPERATIONS = {
-    "exact": EQUALS,
-    "iexact": "ilike",
-    "contains": "like",
-    "icontains": "ilike",
+    "eq": EQUALS,
+    "like": "like",
+    "ilike": "ilike",
+    "not_eq": "__ne__",
+    "not_like": "notlike",
+    "not_ilike": "notilike",
+    "contains": "contains",
+    "startswith": "startswith",
+    "endswith": "endswith",
     "in": "in_",
     "gt": "__gt__",
     "gte": "__ge__",
