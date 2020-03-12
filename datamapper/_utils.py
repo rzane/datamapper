@@ -1,7 +1,7 @@
 from typing import TypeVar, List, Union
 from sqlalchemy import Column, Table
 from sqlalchemy.sql.expression import Alias
-import datamapper.errors as errors
+from datamapper.errors import NoResultsError, MultipleResultsError, UnknownColumnError
 
 T = TypeVar("T")
 
@@ -12,10 +12,10 @@ def assert_one(values: list) -> None:
     """
 
     if not values:
-        raise errors.NoResultsError()
+        raise NoResultsError()
 
     if len(values) > 1:
-        raise errors.MultipleResultsError(len(values))
+        raise MultipleResultsError(len(values))
 
 
 def to_list(value: Union[T, List[T]]) -> List[T]:
@@ -61,4 +61,4 @@ def get_column(table: Union[Table, Alias], name: str) -> Column:
         if isinstance(table, Alias):
             table_name = table.original.name
 
-        raise errors.UnknownColumnError(table_name, name)
+        raise UnknownColumnError(table_name, name)
