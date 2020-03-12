@@ -40,6 +40,14 @@ def test_join_equality() -> None:
     assert join2 == join1
 
 
+def test_join_equality_alias() -> None:
+    join1 = Join(User, ["pets"], alias="join")
+    join2 = Join(User, ["pets"], alias="join")
+
+    assert join1 == join2
+    assert join2 == join1
+
+
 def test_join_equality_outer() -> None:
     join1 = Join(User, ["pets"], outer=True)
     join2 = Join(User, ["pets"], outer=True)
@@ -54,6 +62,14 @@ def test_join_inequality() -> None:
 
     assert pets != home
     assert home != pets
+
+
+def test_join_inequality_alias() -> None:
+    join1 = Join(User, ["pets"], alias="join1")
+    join2 = Join(User, ["pets"], alias="join2")
+
+    assert join1 != join2
+    assert join2 != join1
 
 
 def test_join_inequality_outer() -> None:

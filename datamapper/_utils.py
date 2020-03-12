@@ -1,5 +1,7 @@
-import datamapper.errors as errors
 from typing import TypeVar, List, Union
+from sqlalchemy import Column, Table
+from sqlalchemy.sql.expression import Alias
+from datamapper.errors import NoResultsError, MultipleResultsError, UnknownColumnError
 
 T = TypeVar("T")
 
@@ -10,10 +12,10 @@ def assert_one(values: list) -> None:
     """
 
     if not values:
-        raise errors.NoResultsError()
+        raise NoResultsError()
 
     if len(values) > 1:
-        raise errors.MultipleResultsError(len(values))
+        raise MultipleResultsError(len(values))
 
 
 def to_list(value: Union[T, List[T]]) -> List[T]:
@@ -42,3 +44,21 @@ def to_tree(paths: List[str]) -> dict:
                 current[key] = {}
             current = current[key]
     return result
+
+
+def get_column(table: Union[Table, Alias], name: str) -> Column:
+    """
+    Retrieve a column from a table or table alias.
+
+    If the column is not found, `UnknownColumnError` will be raised.
+    """
+
+    try:
+        return getattr(table.columns, name)
+    except AttributeError:
+        table_name = table.name
+
+        if isinstance(table, Alias):
+            table_name = table.original.name
+
+        raise UnknownColumnError(table_name, name)

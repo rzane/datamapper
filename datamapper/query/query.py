@@ -1,24 +1,13 @@
 from __future__ import annotations
+from typing import Any, List, Mapping, Union, Type, Optional
+from sqlalchemy import Table
+from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
 import datamapper.model as model
+from datamapper._utils import get_column
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
-from typing import Any, List, Mapping, Optional, Union, Tuple, Type
-from sqlalchemy import Table
-from sqlalchemy.sql.expression import ClauseElement, Select, Update, Delete, FromClause
+from datamapper.query.parser import parse_order, parse_where
 
-
-SEPARATOR = "__"
-OPERATIONS = {
-    "exact": "__eq__",
-    "iexact": "ilike",
-    "contains": "like",
-    "icontains": "ilike",
-    "in": "in_",
-    "gt": "__gt__",
-    "gte": "__ge__",
-    "lt": "__lt__",
-    "lte": "__le__",
-}
 
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
@@ -82,23 +71,25 @@ class Query:
     def preload(self, preload: str) -> Query:
         return self.__update(_preloads=self._preloads + [preload])
 
-    def join(self, name: str) -> Query:
-        join = Join(self._model, name.split("."))
+    def join(self, name: str, alias: Optional[str] = None) -> Query:
+        join = Join(self._model, name.split("."), alias=alias)
         return self.__update(_joins=self._joins + [join])
 
-    def outerjoin(self, name: str) -> Query:
-        join = Join(self._model, name.split("."), outer=True)
+    def outerjoin(self, name: str, alias: Optional[str] = None) -> Query:
+        join = Join(self._model, name.split("."), alias=alias, outer=True)
         return self.__update(_joins=self._joins + [join])
 
     def __compile(self, sql: ClauseElement) -> ClauseElement:
-        if self._wheres:
-            sql = self.__build_where(sql)
-
-        if self._order_bys:
-            sql = self.__build_order(sql)
+        tracker = AliasTracker()
 
         if self._joins:
-            sql = self.__build_joins(sql)
+            sql = self.__build_joins(sql, tracker)
+
+        if self._wheres:
+            sql = self.__build_where(sql, tracker)
+
+        if self._order_bys:
+            sql = self.__build_order(sql, tracker)
 
         if self._limit is not None:
             sql = sql.limit(self._limit)
@@ -108,38 +99,51 @@ class Query:
 
         return sql
 
-    def __build_where(self, sql: ClauseElement) -> ClauseElement:
+    def __build_where(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         for where in self._wheres:
             if isinstance(where, dict):
                 for name, value in where.items():
-                    name, op = _parse_where(name)
-                    column = self._model.column(name)
+                    name, op, alias_name = parse_where(name)
+
+                    if alias_name:
+                        table = tracker.fetch(alias_name)
+                    else:
+                        table = self._model.__table__
+
+                    column = get_column(table, name)
                     clause = getattr(column, op)(value)
                     sql = sql.where(clause)
+
             else:
                 sql = sql.where(where)
+
         return sql
 
-    def __build_joins(self, sql: ClauseElement) -> ClauseElement:
+    def __build_joins(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         table = self._model.__table__
         join_tree = to_join_tree(self._joins)
-        tracker = AliasTracker()
         clause = _walk_joins(table, table, join_tree, tracker)
         return sql.select_from(clause)
 
-    def __build_order(self, sql: ClauseElement) -> ClauseElement:
+    def __build_order(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
         clauses = []
+
         for order_by in self._order_bys:
             if isinstance(order_by, str):
-                direction = "asc"
-                if order_by[0] == "-":
-                    direction = "desc"
-                    order_by = order_by[1:]
-                column = self._model.column(order_by)
+                name, direction, alias_name = parse_order(order_by)
+
+                if alias_name:
+                    table = tracker.fetch(alias_name)
+                else:
+                    table = self._model.__table__
+
+                column = get_column(table, name)
                 clause = getattr(column, direction)()
                 clauses.append(clause)
+
             else:
                 clauses.append(order_by)
+
         return sql.order_by(*clauses)
 
     def __update(self, **kwargs: Any) -> Query:
@@ -158,23 +162,14 @@ def _walk_joins(
     for join, subjoins in tree.items():
         assoc = join.find_association()
 
-        related_table = tracker.alias(assoc.related.__table__)
+        related_table = assoc.related.__table__
+        related_table = tracker.put(related_table, alias_name=join.alias)
+
         related_column = getattr(related_table.c, assoc.related_key)
         owner_column = getattr(owner_table.c, assoc.owner_key)
 
-        clause = clause.join(
-            related_table, related_column == owner_column, isouter=join.is_outer
-        )
+        on_clause = related_column == owner_column
+        clause = clause.join(related_table, on_clause, isouter=join.is_outer)
         clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause
-
-
-def _parse_where(name: str) -> Tuple[str, str]:
-    op = "__eq__"
-    parts = name.split(SEPARATOR)
-    name = parts.pop()
-    if name in OPERATIONS:
-        op = OPERATIONS[name]
-        name = parts.pop()
-    return (name, op)

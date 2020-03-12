@@ -1,8 +1,9 @@
 import pytest
 from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
-from datamapper import Query, MissingJoinError
 from tests.support import User, to_sql
+from datamapper import Query
+from datamapper.errors import MissingJoinError
 
 
 def test_to_sql():
@@ -47,6 +48,16 @@ def test_where_literal():
     assert "WHERE users.id = 7" in to_sql(query.to_sql())
 
 
+def test_where_explicit_alias():
+    query = Query(User).join("pets", "p").where(p__id=7)
+    assert "WHERE p.id = 7" in to_sql(query.to_sql())
+
+
+def test_where_implicit_alias():
+    query = Query(User).join("pets").where(p0__id=7)
+    assert "WHERE p0.id = 7" in to_sql(query.to_sql())
+
+
 def test_order_by():
     query = Query(User).order_by("name")
     assert "ORDER BY users.name ASC" in to_sql(query.to_sql())
@@ -60,6 +71,16 @@ def test_order_by_desc():
 def test_order_by_literal():
     query = Query(User).order_by(text("1"))
     assert "ORDER BY 1" in to_sql(query.to_sql())
+
+
+def test_order_by_explicit_alias():
+    query = Query(User).join("pets", "p").order_by("p__id")
+    assert "ORDER BY p.id ASC" in to_sql(query.to_sql())
+
+
+def test_order_by_implicit_alias():
+    query = Query(User).join("pets").order_by("p0__id")
+    assert "ORDER BY p0.id ASC" in to_sql(query.to_sql())
 
 
 def test_preload():
@@ -119,3 +140,16 @@ def test_outerjoin_duplicate():
     sql = to_sql(query.to_sql())
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
     assert "LEFT OUTER JOIN pets AS p1 ON p1.owner_id = users.id" in sql
+
+
+def test_join_alias():
+    query = Query(User).join("pets", "p")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p ON p.owner_id = users.id" in sql
+
+
+def test_join_duplicate_with_alias():
+    query = Query(User).join("pets", "p").join("pets")
+    sql = to_sql(query.to_sql())
+    assert "JOIN pets AS p ON p.owner_id = users.id" in sql
+    assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql

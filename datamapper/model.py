@@ -1,12 +1,12 @@
 from __future__ import annotations
-import datamapper.query as query
-import datamapper.errors as errors
 from enum import Enum
 from abc import ABCMeta
 from importlib import import_module
 from typing import Any, Sequence, Mapping, Union, Type, cast
 from sqlalchemy import Table, Column, MetaData
 from sqlalchemy.ext.hybrid import hybrid_method
+import datamapper.query as query
+from datamapper.errors import UnknownAssociationError, NotLoadedError
 
 
 class ModelMeta(ABCMeta):
@@ -61,18 +61,11 @@ class Model(metaclass=ModelMeta):
         return cls(**{name: row[col.name] for name, col in cls.__attributes__.items()})
 
     @classmethod
-    def column(cls, name: str) -> Column:
-        try:
-            return cls.__attributes__[name]
-        except KeyError:
-            raise errors.InvalidColumnError(cls.__name__, name)
-
-    @classmethod
     def association(cls, name: str) -> Association:
         try:
             return cls.__associations__[name]
         except KeyError:
-            raise errors.InvalidAssociationError(cls.__name__, name)
+            raise UnknownAssociationError(cls.__name__, name)
 
     @hybrid_method
     def to_query(binding: Union[Type[Model], Model]) -> query.Query:
@@ -96,7 +89,7 @@ class Model(metaclass=ModelMeta):
             return self.attributes.get(key)
         elif key in self.__associations__:
             if key not in self.__loaded_associations:
-                raise errors.NotLoadedError(self.__class__.__name__, key)
+                raise NotLoadedError(self.__class__.__name__, key)
             return self.__loaded_associations[key]
         else:
             self.__raise_invalid_attribute(key)
