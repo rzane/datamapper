@@ -61,14 +61,14 @@ class Query:
     def to_delete_sql(self) -> Delete:
         return self.__compile(self._model.__table__.delete())
 
-    def deserialize(self, row: Mapping) -> Any:
+    def _deserialize(self, row: Mapping) -> Any:
         # FIXME: This is a workaround for this bug:
         #   https://github.com/encode/databases/pull/173
         if hasattr(row, "_row"):
             row = cast(Any, row)._row
 
         if self._select is None:
-            return self._model.deserialize(row)
+            return self._model._deserialize(row)
         else:
             values = list(row.values())
             result = _build_result(self._select, values)

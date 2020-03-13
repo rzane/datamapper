@@ -280,4 +280,4 @@ def test_select_invalid():
         query.to_sql()
 
     with pytest.raises(InvalidExpressionError, match=message):
-        query.deserialize({})
+        query._deserialize({})

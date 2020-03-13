@@ -30,7 +30,7 @@ class Model:
     __associations__: Associations = Associations()
 
     @classmethod
-    def deserialize(cls, row: Mapping) -> Model:
+    def _deserialize(cls, row: Mapping) -> Model:
         names = cls.__table__.columns.keys()
         values = {name: row.get(name) for name in names}
         return cls(**values)
