@@ -62,15 +62,15 @@ class Query:
         return self.__compile(self._model.__table__.delete())
 
     def _deserialize(self, row: Mapping) -> Any:
-        # FIXME: This is a workaround for this bug:
-        #   https://github.com/encode/databases/pull/173
-        if hasattr(row, "_row"):
-            row = cast(Any, row)._row
-
         if self._select is None:
-            return self._model._deserialize(row)
+            return self._model._deserialize(dict(row))
         else:
-            values = list(row.values())
+            # FIXME: This is a workaround for this bug:
+            #   https://github.com/encode/databases/pull/173
+            if hasattr(row, "_row"):
+                row = cast(Any, row)._row
+
+            values = list(row)
             result = _build_result(self._select, values)
             assert len(values) == 0
             return result
