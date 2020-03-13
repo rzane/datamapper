@@ -219,3 +219,17 @@ def test_join_duplicate_with_alias():
     sql = to_sql(query.to_sql())
     assert "JOIN pets AS p ON p.owner_id = users.id" in sql
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
+
+
+def test_select_literal():
+    query = Query(User).select(text("1"))
+
+    assert "SELECT 1" in to_sql(query.to_sql())
+    assert query.deserialize({"?column?": 1}) == 1
+
+
+def test_select_name():
+    query = Query(User).select("id")
+
+    assert "SELECT users.id" in to_sql(query.to_sql())
+    assert query.deserialize({"id": 9}) == 9

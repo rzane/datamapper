@@ -11,6 +11,7 @@ from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_order, parse_where
 
+Statement = Union[Select, Update, Delete]
 SelectClause = Union[ClauseElement, str]
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
@@ -59,7 +60,10 @@ class Query:
     def to_delete_sql(self) -> Delete:
         return self.__compile(self._model.__table__.delete())
 
-    def deserialize(self, row: Mapping) -> model.Model:
+    def deserialize(self, row: Mapping) -> Any:
+        if isinstance(self._select, str) or isinstance(self._select, ClauseElement):
+            return list(row.values())[0]
+
         return self._model.deserialize(row)
 
     def select(self, value: SelectClause) -> Query:
@@ -247,7 +251,7 @@ class Query:
         join = Join(self._model, name.split("."), alias=alias, outer=True)
         return self.__update(_joins=self._joins + [join])
 
-    def __compile(self, sql: ClauseElement) -> ClauseElement:
+    def __compile(self, sql: Statement) -> ClauseElement:
         tracker = AliasTracker()
 
         if self._joins:
@@ -259,6 +263,9 @@ class Query:
         if self._order_bys:
             sql = self.__build_order(sql, tracker)
 
+        if self._select is not None:
+            sql = self.__build_select(sql, tracker)
+
         if self._limit is not None:
             sql = sql.limit(self._limit)
 
@@ -267,7 +274,7 @@ class Query:
 
         return sql
 
-    def __build_where(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
+    def __build_where(self, sql: Statement, tracker: AliasTracker) -> Statement:
         for where in self._wheres:
             if isinstance(where, dict):
                 for name, value in where.items():
@@ -287,13 +294,13 @@ class Query:
 
         return sql
 
-    def __build_joins(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
+    def __build_joins(self, sql: Statement, tracker: AliasTracker) -> Statement:
         table = self._model.__table__
         join_tree = to_join_tree(self._joins)
         clause = _walk_joins(table, table, join_tree, tracker)
         return sql.select_from(clause)
 
-    def __build_order(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
+    def __build_order(self, sql: Statement, tracker: AliasTracker) -> Statement:
         clauses = []
 
         for order_by in self._order_bys:
@@ -313,6 +320,18 @@ class Query:
                 clauses.append(order_by)
 
         return sql.order_by(*clauses)
+
+    def __build_select(self, sql: Statement, tracker: AliasTracker) -> Statement:
+        if isinstance(self._select, ClauseElement):
+            return sql.with_only_columns([self._select])
+
+        if isinstance(self._select, str):
+            table = self._model.__table__
+            column = get_column(table, self._select)
+            return sql.with_only_columns([column])
+
+        type_name = type(self._select).__name__
+        raise NotImplementedError(f"Selecting a {type_name} is not supported")
 
     def __update(self, **kwargs: Any) -> Query:
         query = self.__class__(self._model)
