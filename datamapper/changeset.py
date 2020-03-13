@@ -173,10 +173,16 @@ class Changeset(Generic[T]):
         self._schema_validators: List = []
 
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
+        """
+        Applies `params` as changes to the changeset, provided that their keys are `permitted`.
+        """
         permitted_params = {k: v for (k, v) in params.items() if k in permitted}
         return self._update(params=permitted_params, permitted=permitted)
 
     def put_assoc(self, name: str, value: Any) -> Changeset:
+        """
+        Put an association as a change on the changeset.
+        """
         assoc = self._wrapped_data.association(name)
         if isinstance(assoc, BelongsTo):
             return self.change(assoc.values(value))
@@ -184,20 +190,34 @@ class Changeset(Generic[T]):
             raise NotImplementedError()
 
     def validate_required(self, fields: List) -> Changeset:
+        """
+        Validate that `fields` are present in the changeset, either as changes or as data.
+        """
         for f in fields:
             self.required.add(f)
         return self
 
     def validate_change(self, field: str, validator: FieldValidator) -> Changeset:
+        """
+        Validate the value of the given `field` using `valiator` as a predicate.
+
+        Skips the validation if `field` has no changes.
+        """
         existing_validators = self._field_validators.get(field, [])
         self._field_validators[field] = existing_validators + [validator]
         return self
 
     def change(self, changes: dict) -> Changeset:
+        """
+        Apply the given changes without validation.
+        """
         self._changes = dict_merge(self._changes, changes)
         return self
 
     def apply_changes(self) -> T:
+        """
+        Apply the changeset's changes to the data.
+        """
         return self._wrapped_data.apply_changes(self.changes)
 
     def _field_type(self, field: str) -> Type:
