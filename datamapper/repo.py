@@ -117,7 +117,7 @@ class Repo:
         return await self.database.fetch_val(sql)
 
     async def insert(
-        self, model_or_changeset: Union[Type[Model], Changeset[Model]], **values: Any
+        self, model_or_changeset: Union[Model, Changeset[Model]], **values: Any
     ) -> Union[Model, Changeset]:
         """
         Insert a record into the database.
