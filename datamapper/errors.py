@@ -1,3 +1,5 @@
+from typing import Any
+
 __all__ = [
     "Error",
     "UnknownColumnError",
@@ -54,3 +56,8 @@ class MissingJoinError(Error):
 class ConflictingAliasError(Error):
     def __init__(self, name: str):
         super().__init__(f"alias '{name}' conflicts with an existing alias")
+
+
+class InvalidExpressionError(Error):
+    def __init__(self, value: Any):
+        super().__init__(f"`{type(value).__name__}` is not a valid query expression")

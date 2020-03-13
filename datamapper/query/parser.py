@@ -23,51 +23,57 @@ OPERATIONS = {
 }
 
 
-def parse_order(value: str) -> Tuple[str, str, Optional[str]]:
+def parse_column(value: str) -> Tuple[str, Optional[str]]:
+    """
+    Parse a select expression.
+
+    >>> parse_select("name")
+    ("name", None)
+
+    >>> parse_select("blog_posts__title")
+    ("title", "blog_posts")
+    """
+    *parts, name = value.rsplit(SEPARATOR, 1)
+    alias_name = parts[0] if parts else None
+    return (name, alias_name)
+
+
+def parse_order(value: str) -> Tuple[str, str]:
     """
     Parse an order expression.
 
     >>> parse_order("name")
-    ("name", "asc", None)
+    ("name", "asc")
 
     >>> parse_order("-name")
-    ("name", "desc", None)
+    ("name", "desc")
 
     >>> parse_order("blog_posts__title")
-    ("title", "asc", "blog_posts")
+    ("blog_posts__title", "asc")
     """
-
-    direction = DESC if value[0] == MINUS else ASC
-    name = value[1:] if value[0] == MINUS else value
-    *parts, name = name.rsplit(SEPARATOR, 1)
-    alias_name = parts[0] if parts else None
-    return (name, direction, alias_name)
+    if value[0] == MINUS:
+        return (value[1:], DESC)
+    else:
+        return (value, ASC)
 
 
-def parse_where(value: str) -> Tuple[str, str, Optional[str]]:
+def parse_where(value: str) -> Tuple[str, str]:
     """
     Parse an where expression.
 
     >>> parse_where("name")
-    ("name", "__eq__", None)
+    ("name", "__eq__")
 
     >>> parse_where("name__in")
-    ("name", "in_", None)
+    ("name", "in_")
 
     >>> parse_where("blog_posts__id__in")
-    ("id", "in_", "blog_posts")
+    ("blog_posts__id", "in_")
     """
 
     parts = value.split(SEPARATOR)
-    op = EQUALS
-    name = parts.pop()
-    alias_name = None
-
-    if name in OPERATIONS:
-        op = OPERATIONS[name]
-        name = parts.pop()
-
-    if parts:
-        alias_name = SEPARATOR.join(parts)
-
-    return (name, op, alias_name)
+    if parts[-1] in OPERATIONS:
+        op = OPERATIONS[parts.pop()]
+    else:
+        op = EQUALS
+    return (SEPARATOR.join(parts), op)

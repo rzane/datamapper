@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
 
 from datamapper import Query
-from datamapper.errors import MissingJoinError
+from datamapper.errors import InvalidExpressionError, MissingJoinError
 from tests.support import User, to_sql
 
 
@@ -124,6 +124,14 @@ def test_where_implicit_alias():
     assert "WHERE p0.id = 7" in to_sql(query.to_sql())
 
 
+def test_where_invalid():
+    query = Query(User).where(1)
+    message = "`int` is not a valid query expression"
+
+    with pytest.raises(InvalidExpressionError, match=message):
+        query.to_sql()
+
+
 def test_order_by():
     query = Query(User).order_by("name")
     assert "ORDER BY users.name ASC" in to_sql(query.to_sql())
@@ -147,6 +155,14 @@ def test_order_by_explicit_alias():
 def test_order_by_implicit_alias():
     query = Query(User).join("pets").order_by("p0__id")
     assert "ORDER BY p0.id ASC" in to_sql(query.to_sql())
+
+
+def test_order_by_invalid():
+    query = Query(User).order_by(1)
+    message = "`int` is not a valid query expression"
+
+    with pytest.raises(InvalidExpressionError, match=message):
+        query.to_sql()
 
 
 def test_preload():
@@ -219,3 +235,49 @@ def test_join_duplicate_with_alias():
     sql = to_sql(query.to_sql())
     assert "JOIN pets AS p ON p.owner_id = users.id" in sql
     assert "JOIN pets AS p0 ON p0.owner_id = users.id" in sql
+
+
+def test_select_literal():
+    query = Query(User).select(text("1"))
+    assert "SELECT 1" in to_sql(query.to_sql())
+
+
+def test_select_name():
+    query = Query(User).select("id")
+    assert "SELECT users.id" in to_sql(query.to_sql())
+
+
+def test_select_join_name():
+    query = Query(User).join("pets", "p").select("p__id")
+    assert "SELECT p.id" in to_sql(query.to_sql())
+
+
+def test_select_list():
+    query = Query(User).join("pets", "p").select(["id", "p__id"])
+    assert "SELECT users.id, p.id" in to_sql(query.to_sql())
+
+
+def test_select_tuple():
+    query = Query(User).join("pets", "p").select(("id", "p__id"))
+    assert "SELECT users.id, p.id" in to_sql(query.to_sql())
+
+
+def test_select_dict():
+    query = Query(User).join("pets", "p").select({"user_id": "id", "pet_id": "p__id"})
+    assert "SELECT users.id, p.id" in to_sql(query.to_sql())
+
+
+def test_select_nested():
+    query = Query(User).join("pets", "p").select(("id", {"pet": [{"id": "p__id"}]}))
+    assert "SELECT users.id, p.id" in to_sql(query.to_sql())
+
+
+def test_select_invalid():
+    query = Query(User).select(1)
+    message = "`int` is not a valid query expression"
+
+    with pytest.raises(InvalidExpressionError, match=message):
+        query.to_sql()
+
+    with pytest.raises(InvalidExpressionError, match=message):
+        query._deserialize({})

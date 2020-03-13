@@ -17,4 +17,4 @@ say "\n==>> Typechecking..."
 poetry run mypy datamapper tests --pretty
 
 say "\n==>> Testing..."
-poetry run pytest "$@" --cov datamapper --cov-report html
+poetry run pytest "$@" --cov datamapper --cov-report html --cov-fail-under=100

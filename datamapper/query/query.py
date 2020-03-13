@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Optional, Type, Union
+from typing import Any, List, Mapping, Optional, Type, Union, cast
 
-from sqlalchemy import Table
+from sqlalchemy import Column, Table
 from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
 
 import datamapper.model as model
 from datamapper._utils import get_column
+from datamapper.errors import InvalidExpressionError
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
-from datamapper.query.parser import parse_order, parse_where
+from datamapper.query.parser import parse_column, parse_order, parse_where
 
+Statement = Union[Select, Update, Delete]
+SelectClause = Union[ClauseElement, str, list, dict]
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
 
@@ -18,6 +21,7 @@ OrderClause = Union[ClauseElement, str]
 class Query:
     __slots__ = [
         "_model",
+        "_select",
         "_wheres",
         "_order_bys",
         "_limit",
@@ -27,6 +31,7 @@ class Query:
     ]
 
     _model: Type[model.Model]
+    _select: Optional[SelectClause]
     _wheres: List[WhereClause]
     _order_bys: List[OrderClause]
     _joins: List[Join]
@@ -36,6 +41,7 @@ class Query:
 
     def __init__(self, model: Type[model.Model]):
         self._model = model
+        self._select = None
         self._wheres = []
         self._order_bys = []
         self._joins = []
@@ -55,8 +61,34 @@ class Query:
     def to_delete_sql(self) -> Delete:
         return self.__compile(self._model.__table__.delete())
 
-    def deserialize(self, row: Mapping) -> model.Model:
-        return self._model.deserialize(row)
+    def _deserialize(self, row: Mapping) -> Any:
+        # FIXME: This is a workaround for this bug:
+        #   https://github.com/encode/databases/pull/173
+        if hasattr(row, "_row"):
+            row = cast(Any, row)._row
+
+        if self._select is None:
+            return self._model._deserialize(row)
+        else:
+            values = list(row.values())
+            result = _build_result(self._select, values)
+            assert len(values) == 0
+            return result
+
+    def select(self, value: SelectClause) -> Query:
+        """
+        Specify the `SELECT` clause for the query.
+
+        Examples::
+
+            Query(User).select("id")
+            Query(User).select(["id", "name"])
+            Query(User).select(sqlalchemy.text("1"))
+            Query(User).select("p__id").join("pets", "p")
+            Query(User).select(("id", "p__id")).join("pets", "p")
+            Query(User).select({"user_id": "id", "pet_id": "p__id"}).join("pets", "p")
+        """
+        return self.__update(_select=value)
 
     def limit(self, value: int) -> Query:
         """
@@ -232,7 +264,7 @@ class Query:
         join = Join(self._model, name.split("."), alias=alias, outer=True)
         return self.__update(_joins=self._joins + [join])
 
-    def __compile(self, sql: ClauseElement) -> ClauseElement:
+    def __compile(self, sql: Statement) -> ClauseElement:
         tracker = AliasTracker()
 
         if self._joins:
@@ -244,6 +276,9 @@ class Query:
         if self._order_bys:
             sql = self.__build_order(sql, tracker)
 
+        if self._select is not None:
+            sql = self.__build_select(sql, tracker)
+
         if self._limit is not None:
             sql = sql.limit(self._limit)
 
@@ -252,52 +287,79 @@ class Query:
 
         return sql
 
-    def __build_where(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
+    def __build_where(self, sql: Statement, tracker: AliasTracker) -> Statement:
         for where in self._wheres:
-            if isinstance(where, dict):
+            if isinstance(where, ClauseElement):
+                sql = sql.where(where)
+
+            elif isinstance(where, dict):
                 for name, value in where.items():
-                    name, op, alias_name = parse_where(name)
-
-                    if alias_name:
-                        table = tracker.fetch(alias_name)
-                    else:
-                        table = self._model.__table__
-
-                    column = get_column(table, name)
+                    name, op = parse_where(name)
+                    column = self.__column(name, tracker)
                     clause = getattr(column, op)(value)
                     sql = sql.where(clause)
 
             else:
-                sql = sql.where(where)
+                raise InvalidExpressionError(where)
 
         return sql
 
-    def __build_joins(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
+    def __build_joins(self, sql: Statement, tracker: AliasTracker) -> Statement:
         table = self._model.__table__
         join_tree = to_join_tree(self._joins)
         clause = _walk_joins(table, table, join_tree, tracker)
         return sql.select_from(clause)
 
-    def __build_order(self, sql: ClauseElement, tracker: AliasTracker) -> ClauseElement:
+    def __build_order(self, sql: Statement, tracker: AliasTracker) -> Statement:
         clauses = []
 
         for order_by in self._order_bys:
-            if isinstance(order_by, str):
-                name, direction, alias_name = parse_order(order_by)
+            if isinstance(order_by, ClauseElement):
+                clauses.append(order_by)
 
-                if alias_name:
-                    table = tracker.fetch(alias_name)
-                else:
-                    table = self._model.__table__
-
-                column = get_column(table, name)
+            elif isinstance(order_by, str):
+                name, direction = parse_order(order_by)
+                column = self.__column(name, tracker)
                 clause = getattr(column, direction)()
                 clauses.append(clause)
 
             else:
-                clauses.append(order_by)
+                raise InvalidExpressionError(order_by)
 
         return sql.order_by(*clauses)
+
+    def __build_select(self, sql: Statement, tracker: AliasTracker) -> Statement:
+        clauses: List[ClauseElement] = []
+        self.__reduce_select(clauses, self._select, tracker)
+        return sql.with_only_columns(clauses)
+
+    def __reduce_select(
+        self, result: List[ClauseElement], select: SelectClause, tracker: AliasTracker
+    ) -> None:
+        if isinstance(select, ClauseElement):
+            result.append(select)
+
+        elif isinstance(select, str):
+            result.append(self.__column(select, tracker))
+
+        elif isinstance(select, list) or isinstance(select, tuple):
+            for item in select:
+                self.__reduce_select(result, item, tracker)
+
+        elif isinstance(select, dict):
+            for value in select.values():
+                self.__reduce_select(result, value, tracker)
+
+        else:
+            raise InvalidExpressionError(select)
+
+    def __column(self, name: str, tracker: AliasTracker) -> Column:
+        name, alias = parse_column(name)
+        if alias:
+            table = tracker.fetch(alias)
+        else:
+            table = self._model.__table__
+        return get_column(table, name)
 
     def __update(self, **kwargs: Any) -> Query:
         query = self.__class__(self._model)
@@ -326,3 +388,19 @@ def _walk_joins(
         clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause
+
+
+def _build_result(select: SelectClause, values: list) -> Any:
+    if isinstance(select, str) or isinstance(select, ClauseElement):
+        return values.pop(0)
+
+    if isinstance(select, list):
+        return [_build_result(item, values) for item in select]
+
+    if isinstance(select, tuple):
+        return tuple([_build_result(item, values) for item in select])
+
+    if isinstance(select, dict):
+        return {key: _build_result(item, values) for key, item in select.items()}
+
+    raise InvalidExpressionError(select)
