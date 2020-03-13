@@ -9,7 +9,7 @@ import datamapper.model as model
 from datamapper._utils import get_column
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
-from datamapper.query.parser import parse_order, parse_where
+from datamapper.query.parser import parse_order, parse_where, parse_select
 
 Statement = Union[Select, Update, Delete]
 SelectClause = Union[ClauseElement, str]
@@ -326,8 +326,14 @@ class Query:
             return sql.with_only_columns([self._select])
 
         if isinstance(self._select, str):
-            table = self._model.__table__
-            column = get_column(table, self._select)
+            name, alias_name = parse_select(self._select)
+
+            if alias_name:
+                table = tracker.fetch(alias_name)
+            else:
+                table = self._model.__table__
+
+            column = get_column(table, name)
             return sql.with_only_columns([column])
 
         type_name = type(self._select).__name__

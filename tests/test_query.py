@@ -233,3 +233,10 @@ def test_select_name():
 
     assert "SELECT users.id" in to_sql(query.to_sql())
     assert query.deserialize({"id": 9}) == 9
+
+
+def test_select_join_name():
+    query = Query(User).join("pets", "p").select("p__id")
+
+    assert "SELECT p.id" in to_sql(query.to_sql())
+    assert query.deserialize({"id": 9}) == 9

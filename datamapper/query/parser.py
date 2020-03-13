@@ -23,6 +23,21 @@ OPERATIONS = {
 }
 
 
+def parse_select(value: str) -> Tuple[str, Optional[str]]:
+    """
+    Parse a select expression.
+
+    >>> parse_select("name")
+    ("name", None)
+
+    >>> parse_select("blog_posts__title")
+    ("title", "blog_posts")
+    """
+    *parts, name = value.rsplit(SEPARATOR, 1)
+    alias_name = parts[0] if parts else None
+    return (name, alias_name)
+
+
 def parse_order(value: str) -> Tuple[str, str, Optional[str]]:
     """
     Parse an order expression.
@@ -38,9 +53,8 @@ def parse_order(value: str) -> Tuple[str, str, Optional[str]]:
     """
 
     direction = DESC if value[0] == MINUS else ASC
-    name = value[1:] if value[0] == MINUS else value
-    *parts, name = name.rsplit(SEPARATOR, 1)
-    alias_name = parts[0] if parts else None
+    value = value[1:] if value[0] == MINUS else value
+    name, alias_name = parse_select(value)
     return (name, direction, alias_name)
 
 
