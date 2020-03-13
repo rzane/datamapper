@@ -96,8 +96,6 @@ class Repo:
         when no results are found. Raises `MultipleResultsError` when more than
         one result is found.
 
-        than ID.
-
         Examples::
 
             await repo.get_by(User, name="Fred")
@@ -146,8 +144,8 @@ class Repo:
         Examples::
 
             user = await repo.get(User, 1)
-            changeset = Changeset(user)
-            await repo.update(changeset, name="Fred")
+            changeset = Changeset(user).cast({"name": "Fred"}, params=["name"])
+            await repo.update(changeset)
         """
         if not changeset.is_valid:
             return changeset
