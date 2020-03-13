@@ -1,8 +1,8 @@
-import os
 import logging
+import os
 
-from IPython import start_ipython
 from databases import Database
+from IPython import start_ipython
 
 from datamapper import Query, Repo
 from tests.support import Home, Pet, User, provision_database
