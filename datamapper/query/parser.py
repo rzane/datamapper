@@ -23,7 +23,7 @@ OPERATIONS = {
 }
 
 
-def parse_select(value: str) -> Tuple[Optional[str], str]:
+def parse_column(value: str) -> Tuple[str, Optional[str]]:
     """
     Parse a select expression.
 
@@ -35,53 +35,45 @@ def parse_select(value: str) -> Tuple[Optional[str], str]:
     """
     *parts, name = value.rsplit(SEPARATOR, 1)
     alias_name = parts[0] if parts else None
-    return (alias_name, name)
+    return (name, alias_name)
 
 
-def parse_order(value: str) -> Tuple[Optional[str], str, str]:
+def parse_order(value: str) -> Tuple[str, str]:
     """
     Parse an order expression.
 
     >>> parse_order("name")
-    ("name", "asc", None)
+    ("name", "asc")
 
     >>> parse_order("-name")
-    ("name", "desc", None)
+    ("name", "desc")
 
     >>> parse_order("blog_posts__title")
-    ("title", "asc", "blog_posts")
+    ("blog_posts__title", "asc")
     """
+    if value[0] == MINUS:
+        return (value[1:], DESC)
+    else:
+        return (value, ASC)
 
-    direction = DESC if value[0] == MINUS else ASC
-    value = value[1:] if value[0] == MINUS else value
-    alias_name, name = parse_select(value)
-    return (alias_name, name, direction)
 
-
-def parse_where(value: str) -> Tuple[Optional[str], str, str]:
+def parse_where(value: str) -> Tuple[str, str]:
     """
     Parse an where expression.
 
     >>> parse_where("name")
-    ("name", "__eq__", None)
+    ("name", "__eq__")
 
     >>> parse_where("name__in")
-    ("name", "in_", None)
+    ("name", "in_")
 
     >>> parse_where("blog_posts__id__in")
-    ("id", "in_", "blog_posts")
+    ("blog_posts__id", "in_")
     """
 
     parts = value.split(SEPARATOR)
-    op = EQUALS
-    name = parts.pop()
-    alias_name = None
-
-    if name in OPERATIONS:
-        op = OPERATIONS[name]
-        name = parts.pop()
-
-    if parts:
-        alias_name = SEPARATOR.join(parts)
-
-    return (alias_name, name, op)
+    if parts[-1] in OPERATIONS:
+        op = OPERATIONS[parts.pop()]
+    else:
+        op = EQUALS
+    return (SEPARATOR.join(parts), op)

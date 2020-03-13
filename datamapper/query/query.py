@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any, List, Mapping, Optional, Type, Union
 
-from sqlalchemy import Table
+from sqlalchemy import Column, Table
 from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
 
 import datamapper.model as model
 from datamapper._utils import get_column
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
-from datamapper.query.parser import parse_order, parse_where, parse_select
+from datamapper.query.parser import parse_column, parse_order, parse_where
 
 Statement = Union[Select, Update, Delete]
 SelectClause = Union[ClauseElement, str]
@@ -278,14 +278,8 @@ class Query:
         for where in self._wheres:
             if isinstance(where, dict):
                 for name, value in where.items():
-                    alias_name, name, op = parse_where(name)
-
-                    if alias_name:
-                        table = tracker.fetch(alias_name)
-                    else:
-                        table = self._model.__table__
-
-                    column = get_column(table, name)
+                    name, op = parse_where(name)
+                    column = self.__column(name, tracker)
                     clause = getattr(column, op)(value)
                     sql = sql.where(clause)
 
@@ -305,14 +299,8 @@ class Query:
 
         for order_by in self._order_bys:
             if isinstance(order_by, str):
-                alias_name, name, direction = parse_order(order_by)
-
-                if alias_name:
-                    table = tracker.fetch(alias_name)
-                else:
-                    table = self._model.__table__
-
-                column = get_column(table, name)
+                name, direction = parse_order(order_by)
+                column = self.__column(name, tracker)
                 clause = getattr(column, direction)()
                 clauses.append(clause)
 
@@ -326,18 +314,19 @@ class Query:
             return sql.with_only_columns([self._select])
 
         if isinstance(self._select, str):
-            alias_name, name = parse_select(self._select)
-
-            if alias_name:
-                table = tracker.fetch(alias_name)
-            else:
-                table = self._model.__table__
-
-            column = get_column(table, name)
+            column = self.__column(self._select, tracker)
             return sql.with_only_columns([column])
 
         type_name = type(self._select).__name__
         raise NotImplementedError(f"Selecting a {type_name} is not supported")
+
+    def __column(self, name: str, tracker: AliasTracker) -> Column:
+        name, alias = parse_column(name)
+        if alias:
+            table = tracker.fetch(alias)
+        else:
+            table = self._model.__table__
+        return get_column(table, name)
 
     def __update(self, **kwargs: Any) -> Query:
         query = self.__class__(self._model)
