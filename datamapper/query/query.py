@@ -343,7 +343,7 @@ class Query:
             result.append(self.__column(select, tracker))
 
         elif isinstance(select, list) or isinstance(select, tuple):
-            for item in list(select):
+            for item in select:
                 self.__reduce_select(result, item, tracker)
 
         elif isinstance(select, dict):
