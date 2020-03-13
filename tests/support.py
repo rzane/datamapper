@@ -17,7 +17,7 @@ class User(Model):
         "users",
         metadata,
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("name", sa.String),
+        sa.Column("name", sa.String(255)),
     )
 
     __associations__ = Associations(
@@ -31,7 +31,7 @@ class Home(Model):
         "homes",
         metadata,
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("name", sa.String),
+        sa.Column("name", sa.String(255)),
         sa.Column("owner_id", sa.Integer, sa.ForeignKey("users.id")),
     )
 
@@ -43,7 +43,7 @@ class Pet(Model):
         "pets",
         metadata,
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("name", sa.String),
+        sa.Column("name", sa.String(255)),
         sa.Column("owner_id", sa.Integer, sa.ForeignKey("users.id")),
     )
 
@@ -56,6 +56,7 @@ def provision_database(url: str):
         drop_database(engine.url)
     create_database(engine.url)
     metadata.create_all(engine)
+    engine.dispose()
 
 
 def to_sql(statement):
