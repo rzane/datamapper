@@ -35,10 +35,6 @@ class Model:
         values = {name: row.get(name) for name in names}
         return cls(**values)
 
-    def values(self) -> Mapping:
-        names = self.__table__.columns.keys()
-        return {n: getattr(self, n) for n in names}
-
     @classmethod
     def association(cls, name: str) -> Association:
         try:

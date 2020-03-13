@@ -34,7 +34,7 @@ class ChangesetDataWrapper(Generic[T]):
         if isinstance(self.data, dict):
             return dict_merge(self.data, changes)
         elif isinstance(self.data, Model):
-            attrs = {**self.data.values(), **changes}
+            attrs = {**self.data.attributes, **changes}
             return type(self.data)(**attrs)
         else:
             return self.data(**changes)
