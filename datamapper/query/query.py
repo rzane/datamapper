@@ -278,7 +278,7 @@ class Query:
         for where in self._wheres:
             if isinstance(where, dict):
                 for name, value in where.items():
-                    name, op, alias_name = parse_where(name)
+                    alias_name, name, op = parse_where(name)
 
                     if alias_name:
                         table = tracker.fetch(alias_name)
@@ -305,7 +305,7 @@ class Query:
 
         for order_by in self._order_bys:
             if isinstance(order_by, str):
-                name, direction, alias_name = parse_order(order_by)
+                alias_name, name, direction = parse_order(order_by)
 
                 if alias_name:
                     table = tracker.fetch(alias_name)
@@ -326,7 +326,7 @@ class Query:
             return sql.with_only_columns([self._select])
 
         if isinstance(self._select, str):
-            name, alias_name = parse_select(self._select)
+            alias_name, name = parse_select(self._select)
 
             if alias_name:
                 table = tracker.fetch(alias_name)

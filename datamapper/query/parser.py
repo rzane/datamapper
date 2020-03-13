@@ -23,7 +23,7 @@ OPERATIONS = {
 }
 
 
-def parse_select(value: str) -> Tuple[str, Optional[str]]:
+def parse_select(value: str) -> Tuple[Optional[str], str]:
     """
     Parse a select expression.
 
@@ -35,10 +35,10 @@ def parse_select(value: str) -> Tuple[str, Optional[str]]:
     """
     *parts, name = value.rsplit(SEPARATOR, 1)
     alias_name = parts[0] if parts else None
-    return (name, alias_name)
+    return (alias_name, name)
 
 
-def parse_order(value: str) -> Tuple[str, str, Optional[str]]:
+def parse_order(value: str) -> Tuple[Optional[str], str, str]:
     """
     Parse an order expression.
 
@@ -54,11 +54,11 @@ def parse_order(value: str) -> Tuple[str, str, Optional[str]]:
 
     direction = DESC if value[0] == MINUS else ASC
     value = value[1:] if value[0] == MINUS else value
-    name, alias_name = parse_select(value)
-    return (name, direction, alias_name)
+    alias_name, name = parse_select(value)
+    return (alias_name, name, direction)
 
 
-def parse_where(value: str) -> Tuple[str, str, Optional[str]]:
+def parse_where(value: str) -> Tuple[Optional[str], str, str]:
     """
     Parse an where expression.
 
@@ -84,4 +84,4 @@ def parse_where(value: str) -> Tuple[str, str, Optional[str]]:
     if parts:
         alias_name = SEPARATOR.join(parts)
 
-    return (name, op, alias_name)
+    return (alias_name, name, op)
