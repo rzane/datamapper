@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import collections
-from copy import copy
 from typing import (
     Any,
     Callable,
