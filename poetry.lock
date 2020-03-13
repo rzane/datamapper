@@ -1,5 +1,13 @@
 [[package]]
 category = "dev"
+description = "asyncio bridge to the standard sqlite3 module"
+name = "aiosqlite"
+optional = false
+python-versions = ">=3.5"
+version = "0.11.0"
+
+[[package]]
+category = "dev"
 description = "A configurable sidebar-enabled Sphinx theme"
 name = "alabaster"
 optional = false
@@ -888,10 +896,13 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "b1c719316ca878256479d1dfbe8dc72f8760768226281d14a731955b27663e5a"
+content-hash = "68b66ad15585e3d39d5915e740351f76feaad28c2971218cfd534c4e85833827"
 python-versions = "^3.7"
 
 [metadata.files]
+aiosqlite = [
+    {file = "aiosqlite-0.11.0.tar.gz", hash = "sha256:4f02314a42db6722dc26f2a6119c64e3f05f141f57bbf2b1e1f9fd741b6d7fb8"},
+]
 alabaster = [
     {file = "alabaster-0.7.12-py2.py3-none-any.whl", hash = "sha256:446438bdcca0e05bd45ea2de1668c1d9b032e1a9154c2c259092d77031ddd359"},
     {file = "alabaster-0.7.12.tar.gz", hash = "sha256:a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02"},

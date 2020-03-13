@@ -24,6 +24,7 @@ pytest-cov = "^2.8.1"
 isort = "^4.3.21"
 flake8 = "^3.7.9"
 sphinx = "^2.4.4"
+aiosqlite = "^0.11.0"
 
 [tool.isort]
 multi_line_output = 3
