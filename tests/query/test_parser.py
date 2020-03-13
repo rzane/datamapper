@@ -1,4 +1,4 @@
-from datamapper.query.parser import parse_order, parse_where, parse_column
+from datamapper.query.parser import parse_column, parse_order, parse_where
 
 
 def test_parse_column() -> None:

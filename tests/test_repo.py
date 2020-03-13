@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import text
 
 from datamapper import Query, Repo
 from tests.support import Home, Pet, User, database
@@ -231,6 +232,43 @@ async def test_preload_from_query():
 
     home = await repo.one(home.to_query().preload("owner"))
     assert home.owner.id == user.id
+
+
+@pytest.mark.asyncio
+async def test_select_literal():
+    query = Query(User).select(text("1"))
+    assert await repo.one(query) == 1
+
+
+@pytest.mark.asyncio
+async def test_select_name():
+    user = await repo.insert(User)
+    query = Query(User).select("id").limit(1)
+    assert await repo.one(query) == user.id
+
+
+@pytest.mark.asyncio
+async def test_select_join_name():
+    user = await repo.insert(User)
+    pet = await repo.insert(Pet, owner_id=user.id)
+    query = Query(User).join("pets", "p").select("p__id").limit(1)
+    assert await repo.one(query) == pet.id
+
+
+@pytest.mark.asyncio
+async def test_select_list():
+    user = await repo.insert(User)
+    pet = await repo.insert(Pet, owner_id=user.id)
+    query = Query(User).join("pets", "p").select(["id", "p__id"]).limit(1)
+    assert await repo.one(query) == [user.id, pet.id]
+
+
+@pytest.mark.asyncio
+async def test_select_tuple():
+    user = await repo.insert(User)
+    pet = await repo.insert(Pet, owner_id=user.id)
+    query = Query(User).join("pets", "p").select(("id", "p__id")).limit(1)
+    assert await repo.one(query) == (user.id, pet.id)
 
 
 async def list_users(**values):
