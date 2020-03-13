@@ -2,13 +2,16 @@ import pytest
 from sqlalchemy import text
 
 from datamapper import Query, Repo
-from tests.support import Home, Pet, User, database
+from tests.support import Home, Pet, User
 
-repo = Repo(database)
+
+@pytest.fixture(scope="function")
+def repo(database):
+    return Repo(database)
 
 
 @pytest.mark.asyncio
-async def test_all():
+async def test_all(repo):
     await repo.insert(User, name="Foo")
 
     users = await repo.all(Query(User))
@@ -19,7 +22,7 @@ async def test_all():
 
 
 @pytest.mark.asyncio
-async def test_first():
+async def test_first(repo):
     user = await repo.first(User)
     assert user is None
 
@@ -33,7 +36,7 @@ async def test_first():
 
 
 @pytest.mark.asyncio
-async def test_one():
+async def test_one(repo):
     await repo.insert(User, name="Foo")
 
     user = await repo.one(Query(User))
@@ -44,7 +47,7 @@ async def test_one():
 
 
 @pytest.mark.asyncio
-async def test_get_by():
+async def test_get_by(repo):
     await repo.insert(User, name="Foo")
 
     user = await repo.get_by(Query(User), name="Foo")
@@ -55,7 +58,7 @@ async def test_get_by():
 
 
 @pytest.mark.asyncio
-async def test_get():
+async def test_get(repo):
     user = await repo.insert(User, name="Foo")
     user_id = user.id
 
@@ -67,22 +70,22 @@ async def test_get():
 
 
 @pytest.mark.asyncio
-async def test_count():
+async def test_count(repo):
     assert await repo.count(User) == 0
     assert await repo.insert(User, name="Foo")
     assert await repo.count(User) == 1
 
 
 @pytest.mark.asyncio
-async def test_insert():
+async def test_insert(repo):
     user = await repo.insert(User, name="Foo")
     assert isinstance(user, User)
     assert user.id is not None
-    assert await list_users() == ["Foo"]
+    assert await list_users(repo) == ["Foo"]
 
 
 @pytest.mark.asyncio
-async def test_insert_belongs_to():
+async def test_insert_belongs_to(repo):
     user = await repo.insert(User)
 
     home = await repo.insert(Home, owner=user)
@@ -94,17 +97,17 @@ async def test_insert_belongs_to():
 
 
 @pytest.mark.asyncio
-async def test_update():
+async def test_update(repo):
     await repo.insert(User, name="Foo")
     user = await repo.insert(User, name="Bar")
     user = await repo.update(user, name="Changed Bar")
     assert isinstance(user, User)
     assert user.name == "Changed Bar"
-    assert await list_users() == ["Foo", "Changed Bar"]
+    assert await list_users(repo) == ["Foo", "Changed Bar"]
 
 
 @pytest.mark.asyncio
-async def test_update_belongs_to():
+async def test_update_belongs_to(repo):
     user = await repo.insert(User)
     home = await repo.insert(Home)
 
@@ -117,50 +120,50 @@ async def test_update_belongs_to():
 
 
 @pytest.mark.asyncio
-async def test_delete():
+async def test_delete(repo):
     await repo.insert(User, name="Foo")
     user = await repo.insert(User, name="Bar")
     user = await repo.delete(user)
     assert isinstance(user, User)
-    assert await list_users() == ["Foo"]
+    assert await list_users(repo) == ["Foo"]
 
 
 @pytest.mark.asyncio
-async def test_update_all():
+async def test_update_all(repo):
     await repo.insert(User, name="Foo")
     await repo.insert(User, name="Foo")
     await repo.update_all(User, name="Buzz")
-    assert await list_users() == ["Buzz", "Buzz"]
+    assert await list_users(repo) == ["Buzz", "Buzz"]
 
 
 @pytest.mark.asyncio
-async def test_update_all_query():
+async def test_update_all_query(repo):
     await repo.insert(User, name="Foo")
     await repo.insert(User, name="Bar")
     await repo.insert(User, name="Foo")
     await repo.update_all(Query(User).where(name="Foo"), name="Buzz")
-    assert await list_users() == ["Buzz", "Bar", "Buzz"]
+    assert await list_users(repo) == ["Buzz", "Bar", "Buzz"]
 
 
 @pytest.mark.asyncio
-async def test_delete_all():
+async def test_delete_all(repo):
     await repo.insert(User, name="Foo")
     await repo.insert(User, name="Bar")
     await repo.delete_all(User)
-    assert await list_users() == []
+    assert await list_users(repo) == []
 
 
 @pytest.mark.asyncio
-async def test_delete_all_query():
+async def test_delete_all_query(repo):
     await repo.insert(User, name="Foo")
     await repo.insert(User, name="Bar")
     await repo.insert(User, name="Foo")
     await repo.delete_all(Query(User).where(name="Foo"))
-    assert await list_users() == ["Bar"]
+    assert await list_users(repo) == ["Bar"]
 
 
 @pytest.mark.asyncio
-async def test_preload_belongs_to():
+async def test_preload_belongs_to(repo):
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
 
@@ -169,7 +172,7 @@ async def test_preload_belongs_to():
 
 
 @pytest.mark.asyncio
-async def test_preload_has_one():
+async def test_preload_has_one(repo):
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
 
@@ -178,7 +181,7 @@ async def test_preload_has_one():
 
 
 @pytest.mark.asyncio
-async def test_preload_has_many():
+async def test_preload_has_many(repo):
     user = await repo.insert(User)
 
     await repo.insert(Pet, owner_id=user.id)
@@ -191,7 +194,7 @@ async def test_preload_has_many():
 
 
 @pytest.mark.asyncio
-async def test_preload_multiple():
+async def test_preload_multiple(repo):
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
     pet = await repo.insert(Pet, owner_id=user.id)
@@ -202,7 +205,7 @@ async def test_preload_multiple():
 
 
 @pytest.mark.asyncio
-async def test_preload_collection():
+async def test_preload_collection(repo):
     user1 = await repo.insert(User)
     user2 = await repo.insert(User)
     home1 = await repo.insert(Home, owner_id=user1.id)
@@ -214,7 +217,7 @@ async def test_preload_collection():
 
 
 @pytest.mark.asyncio
-async def test_preload_nested():
+async def test_preload_nested(repo):
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
     pet = await repo.insert(Pet, owner_id=user.id)
@@ -226,7 +229,7 @@ async def test_preload_nested():
 
 
 @pytest.mark.asyncio
-async def test_preload_from_query():
+async def test_preload_from_query(repo):
     user = await repo.insert(User)
     home = await repo.insert(Home, owner_id=user.id)
 
@@ -235,20 +238,20 @@ async def test_preload_from_query():
 
 
 @pytest.mark.asyncio
-async def test_select_literal():
+async def test_select_literal(repo):
     query = Query(User).select(text("1"))
     assert await repo.one(query) == 1
 
 
 @pytest.mark.asyncio
-async def test_select_name():
+async def test_select_name(repo):
     user = await repo.insert(User)
     query = Query(User).select("id")
     assert await repo.one(query) == user.id
 
 
 @pytest.mark.asyncio
-async def test_select_join_name():
+async def test_select_join_name(repo):
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
     query = Query(User).join("pets", "p").select("p__id")
@@ -256,7 +259,7 @@ async def test_select_join_name():
 
 
 @pytest.mark.asyncio
-async def test_select_list():
+async def test_select_list(repo):
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
     query = Query(User).join("pets", "p").select(["id", "p__id"])
@@ -264,7 +267,7 @@ async def test_select_list():
 
 
 @pytest.mark.asyncio
-async def test_select_tuple():
+async def test_select_tuple(repo):
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
     query = Query(User).join("pets", "p").select(("id", "p__id"))
@@ -272,7 +275,7 @@ async def test_select_tuple():
 
 
 @pytest.mark.asyncio
-async def test_select_dict():
+async def test_select_dict(repo):
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
     query = Query(User).join("pets", "p").select({"user_id": "id", "pet_id": "p__id"})
@@ -280,12 +283,12 @@ async def test_select_dict():
 
 
 @pytest.mark.asyncio
-async def test_select_nested():
+async def test_select_nested(repo):
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
     query = Query(User).join("pets", "p").select(("id", {"pet": [{"id": "p__id"}]}))
     assert await repo.one(query) == (user.id, {"pet": [{"id": pet.id}]})
 
 
-async def list_users(**values):
+async def list_users(repo):
     return [user.name for user in await repo.all(Query(User).order_by("id"))]

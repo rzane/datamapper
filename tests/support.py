@@ -1,16 +1,9 @@
-import os
-
-from databases import Database
 from sqlalchemy import Integer, Column, ForeignKey, MetaData, String, Table
 from sqlalchemy.dialects import postgresql
 
 from datamapper import Associations, BelongsTo, HasMany, HasOne, Model
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datamapper")
-
-
 metadata = MetaData()
-database = Database(DATABASE_URL, force_rollback=True)
 
 
 class User(Model):

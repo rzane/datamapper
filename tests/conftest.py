@@ -1,8 +1,11 @@
+import os
 import pytest
+from databases import Database
 from sqlalchemy import create_engine
 from sqlalchemy_utils import create_database, database_exists, drop_database
+from tests.support import metadata
 
-from tests.support import DATABASE_URL, database, metadata
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datamapper")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -16,8 +19,8 @@ def setup_database():
     metadata.create_all(engine)
 
 
-@pytest.fixture(autouse=True)
-async def rollback_transaction():
+@pytest.fixture(scope="function")
+async def database():
     """Surround each test in a transaction"""
-    async with database:
-        yield
+    async with Database(DATABASE_URL, force_rollback=True) as database:
+        yield database
