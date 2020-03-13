@@ -1,8 +1,10 @@
-.vscode/
 __pycache__/
 *.egg-info/
-.mypy_cache/
-.coverage
-htmlcov/
-docs/html/
-docs/stubs/
+/.vscode/
+/.mypy_cache/
+/.coverage
+/htmlcov/
+/docs/html/
+/docs/stubs/
+/test.db
+/console.db

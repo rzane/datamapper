@@ -54,6 +54,6 @@ def provision_database(url: str):
 
 def to_sql(statement):
     """Convert a SQLAlchemy statement to raw SQL"""
-    dialect = sa.dialects.postgresql()
+    dialect = sa.dialects.postgresql.dialect()
     options = {"literal_binds": True}
     return str(statement.compile(dialect=dialect, compile_kwargs=options))

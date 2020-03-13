@@ -9,9 +9,7 @@ from tests.support import Home, Pet, User, provision_database
 
 logging.basicConfig(level=logging.DEBUG)
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://postgres@localhost/datamapper_console"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///console.db")
 
 database = Database(DATABASE_URL)
 repo = Repo(database)
