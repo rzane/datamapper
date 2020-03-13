@@ -45,4 +45,4 @@ jobs:
       - name: Test
         run: bin/ci
         env:
-          DATABASE_URLS: sqlite:///test.db,postgresql://postgres@localhost:${{ job.services.postgres.ports['5432'] }}/datamapper,mysql+pymysql://root:mysql@localhost:${{ job.services.mysql.ports['3306'] }}/datamapper
+          DATABASE_URLS: sqlite:///test.db,postgresql://postgres@localhost:${{ job.services.postgres.ports['5432'] }}/datamapper,mysql+pymysql://root:root@localhost:${{ job.services.mysql.ports['3306'] }}/datamapper
