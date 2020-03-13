@@ -17,23 +17,32 @@ jobs:
     services:
       postgres:
         image: postgres:12-alpine
-        ports: ["5432:5432"]
+        ports: ["5432"]
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         env:
           POSTGRES_HOST_AUTH_METHOD: trust
 
+      mysql:
+        image: mysql:8.0
+        ports: ["3306"]
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        env:
+          MYSQL_ROOT_PASSWORD: root
+
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v1
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install Poetry
-      run: |
-        python -m pip install --upgrade pip
-        pip install poetry
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
 
-    - name: Test
-      run: bin/ci
+      - name: Test
+        run: bin/ci
+        env:
+          DATABASE_URLS: sqlite:///test.db,postgresql://postgres@localhost:${{ job.services.postgres.ports['5432'] }}/datamapper,mysql+pymysql://root:root@localhost:${{ job.services.mysql.ports['3306'] }}/datamapper
