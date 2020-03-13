@@ -1,9 +1,7 @@
 import os
 import pytest
 from databases import Database
-from sqlalchemy import create_engine
-from sqlalchemy_utils import create_database, database_exists, drop_database
-from tests.support import metadata
+from tests.support import provision_database
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datamapper")
 
@@ -11,12 +9,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost/datama
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """Create database tables before running the test suite"""
-
-    engine = create_engine(DATABASE_URL)
-    if database_exists(engine.url):
-        drop_database(engine.url)
-    create_database(engine.url)
-    metadata.create_all(engine)
+    provision_database(DATABASE_URL)
 
 
 @pytest.fixture(scope="function")
