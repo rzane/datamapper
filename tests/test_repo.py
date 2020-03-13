@@ -243,7 +243,7 @@ async def test_select_literal():
 @pytest.mark.asyncio
 async def test_select_name():
     user = await repo.insert(User)
-    query = Query(User).select("id").limit(1)
+    query = Query(User).select("id")
     assert await repo.one(query) == user.id
 
 
@@ -251,7 +251,7 @@ async def test_select_name():
 async def test_select_join_name():
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
-    query = Query(User).join("pets", "p").select("p__id").limit(1)
+    query = Query(User).join("pets", "p").select("p__id")
     assert await repo.one(query) == pet.id
 
 
@@ -259,7 +259,7 @@ async def test_select_join_name():
 async def test_select_list():
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
-    query = Query(User).join("pets", "p").select(["id", "p__id"]).limit(1)
+    query = Query(User).join("pets", "p").select(["id", "p__id"])
     assert await repo.one(query) == [user.id, pet.id]
 
 
@@ -267,8 +267,24 @@ async def test_select_list():
 async def test_select_tuple():
     user = await repo.insert(User)
     pet = await repo.insert(Pet, owner_id=user.id)
-    query = Query(User).join("pets", "p").select(("id", "p__id")).limit(1)
+    query = Query(User).join("pets", "p").select(("id", "p__id"))
     assert await repo.one(query) == (user.id, pet.id)
+
+
+@pytest.mark.asyncio
+async def test_select_dict():
+    user = await repo.insert(User)
+    pet = await repo.insert(Pet, owner_id=user.id)
+    query = Query(User).join("pets", "p").select({"user_id": "id", "pet_id": "p__id"})
+    assert await repo.one(query) == {"user_id": user.id, "pet_id": pet.id}
+
+
+@pytest.mark.asyncio
+async def test_select_nested():
+    user = await repo.insert(User)
+    pet = await repo.insert(Pet, owner_id=user.id)
+    query = Query(User).join("pets", "p").select(("id", {"pet": [{"id": "p__id"}]}))
+    assert await repo.one(query) == (user.id, {"pet": [{"id": pet.id}]})
 
 
 async def list_users(**values):

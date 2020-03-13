@@ -13,8 +13,7 @@ from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_column, parse_order, parse_where
 
 Statement = Union[Select, Update, Delete]
-SelectClause = Union[ClauseElement, str]
-SelectClause = Union[SelectClause, List[SelectClause]]
+SelectClause = Union[ClauseElement, str, list, dict]
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
 
@@ -68,16 +67,13 @@ class Query:
         if hasattr(row, "_row"):
             row = cast(Any, row)._row
 
-        if isinstance(self._select, str) or isinstance(self._select, ClauseElement):
-            return list(row.values())[0]
-
-        if isinstance(self._select, list):
-            return list(row.values())
-
-        if isinstance(self._select, tuple):
-            return tuple(row.values())
-
-        return self._model.deserialize(row)
+        if self._select is None:
+            return self._model.deserialize(row)
+        else:
+            values = list(row.values())
+            result = _build_result(self._select, values)
+            assert len(values) == 0
+            return result
 
     def select(self, value: SelectClause) -> Query:
         """
@@ -355,6 +351,10 @@ class Query:
             for item in list(select):
                 self.__reduce_select(result, item, tracker)
 
+        elif isinstance(select, dict):
+            for value in select.values():
+                self.__reduce_select(result, value, tracker)
+
         else:
             raise InvalidExpressionError(select)
 
@@ -393,3 +393,19 @@ def _walk_joins(
         clause = _walk_joins(clause, related_table, subjoins, tracker)
 
     return clause
+
+
+def _build_result(select: SelectClause, values: list) -> Any:
+    if isinstance(select, str) or isinstance(select, ClauseElement):
+        return values.pop(0)
+
+    if isinstance(select, list):
+        return [_build_result(item, values) for item in select]
+
+    if isinstance(select, tuple):
+        return tuple([_build_result(item, values) for item in select])
+
+    if isinstance(select, dict):
+        return {key: _build_result(item, values) for key, item in select.items()}
+
+    raise InvalidExpressionError(select)

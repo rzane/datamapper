@@ -262,6 +262,16 @@ def test_select_tuple():
     assert "SELECT users.id, p.id" in to_sql(query.to_sql())
 
 
+def test_select_dict():
+    query = Query(User).join("pets", "p").select({"user_id": "id", "pet_id": "p__id"})
+    assert "SELECT users.id, p.id" in to_sql(query.to_sql())
+
+
+def test_select_nested():
+    query = Query(User).join("pets", "p").select(("id", {"pet": [{"id": "p__id"}]}))
+    assert "SELECT users.id, p.id" in to_sql(query.to_sql())
+
+
 def test_select_invalid():
     query = Query(User).select(1)
     message = "`int` is not a valid query expression"
