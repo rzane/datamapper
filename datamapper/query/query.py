@@ -82,16 +82,11 @@ class Query:
         Examples::
 
             Query(User).select("id")
-            # SELECT users.id FROM users
-
             Query(User).select(["id", "name"])
-            # SELECT users.id, users.name FROM users
-
             Query(User).select(sqlalchemy.text("1"))
-            # SELECT 1 FROM users
-
-            Query(User).join("pets", "p").select("p__id")
-            # SELECT p.id FROM users JOIN pets AS p ON p.owner_id = users.id
+            Query(User).select("p__id").join("pets", "p")
+            Query(User).select(("id", "p__id")).join("pets", "p")
+            Query(User).select({"user_id": "id", "pet_id": "p__id"}).join("pets", "p")
         """
         return self.__update(_select=value)
 
