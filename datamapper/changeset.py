@@ -164,11 +164,11 @@ class Changeset(Generic[T]):
     def __init__(self, data: T) -> None:
         self._wrapped_data: ChangesetDataWrapper[T] = ChangesetDataWrapper(data)
 
-        self._changes: dict = {}
-        self._errors: dict = {}
         self.params: dict = {}
-        self.permitted: list = []
+        self.permitted: set = set()
         self.required: set = set()
+
+        self._forced_changes: dict = {}
         self._field_validators: Dict[str, List[FieldValidator]] = {}
         self._schema_validators: List = []
 
@@ -177,7 +177,10 @@ class Changeset(Generic[T]):
         Applies `params` as changes to the changeset, provided that their keys are `permitted`.
         """
         permitted_params = {k: v for (k, v) in params.items() if k in permitted}
-        return self._update(params=permitted_params, permitted=permitted)
+        return self._update(
+            params={**self.params, **permitted_params},
+            permitted=self.permitted.union(permitted),
+        )
 
     def put_assoc(self, name: str, value: Any) -> Changeset:
         """
@@ -211,7 +214,7 @@ class Changeset(Generic[T]):
         """
         Apply the given changes without validation.
         """
-        self._changes = dict_merge(self._changes, changes)
+        self._forced_changes = dict_merge(self._forced_changes, changes)
         return self
 
     def apply_changes(self) -> T:
@@ -233,13 +236,19 @@ class Changeset(Generic[T]):
 
     @property
     def changes(self) -> dict:
-        self._evaluate()
-        return self._changes
+        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
+        if is_valid:
+            return dict_merge(result, self._forced_changes)
+        else:
+            return {}
 
     @property
     def errors(self) -> dict:
-        self._evaluate()
-        return self._errors
+        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
+        if is_valid:
+            return {}
+        else:
+            return result
 
     def __repr__(self) -> str:
         return f"<Changeset data={self._wrapped_data.type}>"
@@ -254,19 +263,3 @@ class Changeset(Generic[T]):
     @property
     def data(self) -> T:
         return self._wrapped_data.data
-
-    def _evaluate(self) -> None:
-        """
-        Build the validation class and validate the params, finally setting
-        the `changes` and `errors` attributes.
-        """
-        changes: dict = {}
-        errors = {}
-
-        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
-        if is_valid:
-            changes = dict_merge(self._changes, result)
-        else:
-            errors = result
-
-        self._update(_changes=changes, _errors=errors, _evaluated=True)
