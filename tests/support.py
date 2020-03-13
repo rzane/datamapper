@@ -1,7 +1,13 @@
+import os
+
 import sqlalchemy as sa
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 from datamapper import Associations, BelongsTo, HasMany, HasOne, Model
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///test.db")
+DATABASE_URLS = os.getenv("DATABASE_URLS", DATABASE_URL).split(",")
+
 
 metadata = sa.MetaData()
 
