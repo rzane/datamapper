@@ -1,3 +1,3 @@
-from .query import Query
+from .query import Query, call, raw
 
-__all__ = ["Query"]
+__all__ = ["Query", "raw", "call"]

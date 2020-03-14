@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
 
-from datamapper import Query
+from datamapper import Query, call, raw
 from datamapper.errors import InvalidExpressionError, MissingJoinError
 from tests.support import User, to_sql
 
@@ -272,8 +272,13 @@ def test_select_nested():
     assert "SELECT users.id, p.id" in to_sql(query.to_sql())
 
 
+def test_select_raw():
+    query = Query(User).select(raw(100))
+    assert "SELECT 1" in to_sql(query.to_sql())
+
+
 def test_select_invalid():
-    query = Query(User).select(1)
+    query = Query(User).select(100)
     message = "`int` is not a valid query expression"
 
     with pytest.raises(InvalidExpressionError, match=message):

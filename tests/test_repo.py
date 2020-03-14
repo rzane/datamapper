@@ -2,8 +2,7 @@ import pytest
 from databases import Database
 from sqlalchemy import text
 
-from datamapper import Query, Repo
-from datamapper.changeset import Changeset
+from datamapper import Changeset, Query, Repo, call, raw
 from datamapper.errors import InvalidChangesetError
 from tests.support import DATABASE_URLS, Home, Pet, User, provision_database
 
@@ -362,6 +361,24 @@ async def test_select_nested(repo):
     pet = await repo.insert(Pet(owner_id=user.id))
     query = Query(User).join("pets", "p").select(("id", {"pet": [{"id": "p__id"}]}))
     assert await repo.one(query) == (user.id, {"pet": [{"id": pet.id}]})
+
+
+@pytest.mark.asyncio
+async def test_select_raw(repo):
+    await repo.insert(User)
+    query = Query(User).select(raw(100))
+    assert await repo.one(query) == 100
+
+
+@pytest.mark.asyncio
+async def test_select_call(repo):
+    user = await repo.insert(User, name="Fred")
+    query = Query(User).select(call(handle_call, "id", raw(100), name="name"))
+    assert await repo.one(query) == ((user.id, 100), {"name": user.name})
+
+
+def handle_call(*args, **kwargs):
+    return (args, kwargs)
 
 
 async def list_users(repo):
