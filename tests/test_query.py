@@ -3,7 +3,11 @@ from sqlalchemy import text
 from sqlalchemy.sql.expression import Select
 
 from datamapper import Query, call, raw
-from datamapper.errors import InvalidExpressionError, MissingJoinError
+from datamapper.errors import (
+    InvalidExpressionError,
+    InvalidSelectError,
+    MissingJoinError,
+)
 from tests.support import User, to_sql
 
 
@@ -275,6 +279,17 @@ def test_select_nested():
 def test_select_raw():
     query = Query(User).select(raw(100))
     assert "SELECT 1" in to_sql(query.to_sql())
+
+
+def test_select_empty():
+    query = Query(User)
+
+    with pytest.raises(InvalidSelectError):
+        query.select([]).to_sql()
+    with pytest.raises(InvalidSelectError):
+        query.select(()).to_sql()
+    with pytest.raises(InvalidSelectError):
+        query.select({}).to_sql()
 
 
 def test_select_invalid():

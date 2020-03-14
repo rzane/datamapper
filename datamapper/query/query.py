@@ -7,7 +7,7 @@ from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select,
 
 import datamapper.model as model
 from datamapper._utils import get_column
-from datamapper.errors import InvalidExpressionError
+from datamapper.errors import InvalidExpressionError, InvalidSelectError
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_column, parse_order, parse_where
@@ -330,6 +330,10 @@ class Query:
 
     def __build_select(self, sql: Statement, tracker: AliasTracker) -> Statement:
         clauses = self.__reduce_select([], self._select, tracker)
+
+        if len(clauses) == 0:
+            raise InvalidSelectError()
+
         return sql.with_only_columns(clauses)
 
     def __reduce_select(
