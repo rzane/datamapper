@@ -281,6 +281,11 @@ def test_select_raw():
     assert "SELECT 1" in to_sql(query.to_sql())
 
 
+def test_select_call():
+    query = Query(User).select(call(lambda x: x, "id"))
+    assert "SELECT users.id" in to_sql(query.to_sql())
+
+
 def test_select_empty():
     query = Query(User)
 
