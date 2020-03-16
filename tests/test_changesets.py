@@ -100,3 +100,8 @@ def test_change_allows_one_to_add_invalid_changes():
     )
 
     assert changeset.changes["id"] == "foo"
+
+
+def test_apply_changes_to_dict_changeset():
+    changeset = Changeset({"name": "foo"}).cast({"name": "bar", "baz": "qux"}, ["name", "baz"])
+    assert changeset.apply_changes() == {"name": "bar", "baz": "qux"}
