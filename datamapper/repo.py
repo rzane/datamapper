@@ -1,10 +1,11 @@
-from typing import Any, List, Optional, Type, Union
+from typing import Any, List, Optional, Union
 
 from databases import Database
 from sqlalchemy import func
 from typing_extensions import Protocol
 
 from datamapper._utils import assert_one, to_list, to_tree
+from datamapper.changeset import Changeset
 from datamapper.model import Association, Cardinality, Model
 from datamapper.query import Query
 
@@ -95,8 +96,6 @@ class Repo:
         when no results are found. Raises `MultipleResultsError` when more than
         one result is found.
 
-        than ID.
-
         Examples::
 
             await repo.get_by(User, name="Fred")
@@ -117,35 +116,44 @@ class Repo:
         sql = func.count().select().select_from(sql)
         return await self.database.fetch_val(sql)
 
-    async def insert(self, model: Type[Model], **values: Any) -> Model:
+    async def insert(
+        self, model_or_changeset: Union[Model, Changeset[Model]]
+    ) -> Union[Model, Changeset]:
         """
         Insert a record into the database.
 
         Examples::
 
             await repo.insert(User, name="Fred")
+            await repo.insert(changeset)
         """
-        sql_values = _collect_sql_values(model, values)
-        sql = model.__table__.insert().values(**sql_values)
-        record_id = await self.database.execute(sql)
-        return model(id=record_id, **values)
+        changeset = cast_changeset(model_or_changeset)
+        if not changeset.is_valid:
+            return changeset
 
-    async def update(self, record: Model, **values: Any) -> Model:
+        model = changeset.data
+        sql = model.__table__.insert().values(**changeset.changes)
+        record_id = await self.database.execute(sql)
+        return changeset.change({"id": record_id}).apply_changes()
+
+    async def update(self, changeset: Changeset) -> Union[Model, Changeset]:
         """
         Update a record in the database.
 
         Examples::
 
             user = await repo.get(User, 1)
-            await repo.update(user, name="Fred")
+            changeset = Changeset(user).cast({"name": "Fred"}, params=["name"])
+            await repo.update(changeset)
         """
+        if not changeset.is_valid:
+            return changeset
+
+        record = changeset.data
         query = record.to_query()
-        sql_values = _collect_sql_values(record, values)
-        sql = query.to_update_sql().values(**sql_values)
+        sql = query.to_update_sql().values(changeset.changes)
         await self.database.execute(sql)
-        for key, value in values.items():
-            setattr(record, key, value)
-        return record
+        return changeset.apply_changes()
 
     async def delete(self, record: Model, **values: Any) -> Model:
         """
@@ -219,6 +227,16 @@ class Repo:
             await self.__preload(preloaded, subpreloads)
 
 
+def cast_changeset(model_or_changeset: Union[Model, Changeset]) -> Changeset:
+    if isinstance(model_or_changeset, Model):
+        changes = model_or_changeset.attributes
+        return Changeset(model_or_changeset).cast(changes, list(changes.keys()))
+    elif isinstance(model_or_changeset, Changeset):
+        return model_or_changeset
+    else:
+        raise ValueError("Must be Model instance or Changeset.")
+
+
 def _resolve_preloads(
     owners: List[Model], preloaded: List[Model], assoc: Association
 ) -> None:
@@ -237,19 +255,3 @@ def _resolve_preloads(
             setattr(owner, assoc.name, lookup.get(key, None))
         else:
             setattr(owner, assoc.name, lookup.get(key, []))
-
-
-def _collect_sql_values(model: Union[Model, Type[Model]], values: dict) -> dict:
-    """
-    Convert attributes and association values to values that will be stored
-    in the database.
-    """
-
-    sql_values = {}
-    for key, value in values.items():
-        if key in model.__associations__:
-            assoc = model.__associations__[key]
-            sql_values.update(assoc.values(value))
-        else:
-            sql_values[key] = value
-    return sql_values

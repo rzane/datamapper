@@ -8,6 +8,7 @@ from datamapper import Query, Repo
 from tests.support import Home, Pet, User, provision_database
 
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("parso").setLevel(logging.ERROR)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///console.db")
 
