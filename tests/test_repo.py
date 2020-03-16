@@ -304,6 +304,7 @@ async def test_update_from_invalid_changeset(repo):
     assert not invalid_changeset.is_valid
 
 
+@pytest.mark.asyncio
 async def test_select_literal(repo):
     query = Query(User).select(text("1"))
     assert await repo.one(query) == 1

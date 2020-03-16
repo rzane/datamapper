@@ -11,7 +11,7 @@ class Person(Model):
         "people",
         metadata,
         Column("id", BigInteger, primary_key=True),
-        Column("name", String),
+        Column("name", String(255)),
         Column("age", BigInteger),
     )
 
