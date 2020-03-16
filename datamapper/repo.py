@@ -117,7 +117,7 @@ class Repo:
         return await self.database.fetch_val(sql)
 
     async def insert(
-        self, model_or_changeset: Union[Model, Changeset[Model]], **values: Any
+        self, model_or_changeset: Union[Model, Changeset[Model]]
     ) -> Union[Model, Changeset]:
         """
         Insert a record into the database.
@@ -127,13 +127,12 @@ class Repo:
             await repo.insert(User, name="Fred")
             await repo.insert(changeset)
         """
-        changeset = cast_changeset(model_or_changeset, values)
+        changeset = cast_changeset(model_or_changeset)
         if not changeset.is_valid:
             return changeset
 
         model = changeset.data
-        sql_values = _collect_sql_values(model, changeset.changes)
-        sql = model.__table__.insert().values(**sql_values)
+        sql = model.__table__.insert().values(**changeset.changes)
         record_id = await self.database.execute(sql)
         return changeset.change({"id": record_id}).apply_changes()
 
@@ -152,8 +151,9 @@ class Repo:
 
         record = changeset.data
         query = record.to_query()
-        sql_values = _collect_sql_values(record, changeset.changes)
-        sql = query.to_update_sql().values(**sql_values)
+        sql = query.to_update_sql().values(
+            **_collect_sql_values(record, changeset.changes)
+        )
         await self.database.execute(sql)
         return changeset.apply_changes()
 
@@ -229,17 +229,14 @@ class Repo:
             await self.__preload(preloaded, subpreloads)
 
 
-def cast_changeset(
-    model_or_changeset: Union[Model, Type[Model], Changeset], values: dict
-) -> Changeset:
+def cast_changeset(model_or_changeset: Union[Model, Changeset]) -> Changeset:
     if isinstance(model_or_changeset, Model):
-        return Changeset(model_or_changeset).cast(values, list(values.keys()))
-    elif isinstance(model_or_changeset, type(Model)):
-        return Changeset(model_or_changeset()).cast(values, list(values.keys()))
+        changes = model_or_changeset.attributes
+        return Changeset(model_or_changeset).cast(changes, list(changes.keys()))
     elif isinstance(model_or_changeset, Changeset):
         return model_or_changeset
     else:
-        raise ValueError("Must be Model instance, class or Changeset.")
+        raise ValueError("Must be Model instance or Changeset.")
 
 
 def _resolve_preloads(
