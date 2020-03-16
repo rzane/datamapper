@@ -46,7 +46,7 @@ class Repo:
         """
         query = queryable.to_query()
         rows = await self.database.fetch_all(query.to_sql())
-        records = [query.deserialize(row) for row in rows]
+        records = [query._deserialize(row) for row in rows]
 
         if query._preloads:
             await self.preload(records, query._preloads)
