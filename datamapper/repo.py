@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Type, Union
+from typing import Any, List, Optional, Union
 
 from databases import Database
 from sqlalchemy import func
@@ -151,9 +151,7 @@ class Repo:
 
         record = changeset.data
         query = record.to_query()
-        sql = query.to_update_sql().values(
-            **_collect_sql_values(record, changeset.changes)
-        )
+        sql = query.to_update_sql().values(changeset.changes)
         await self.database.execute(sql)
         return changeset.apply_changes()
 
@@ -257,19 +255,3 @@ def _resolve_preloads(
             setattr(owner, assoc.name, lookup.get(key, None))
         else:
             setattr(owner, assoc.name, lookup.get(key, []))
-
-
-def _collect_sql_values(model: Union[Model, Type[Model]], values: dict) -> dict:
-    """
-    Convert attributes and association values to values that will be stored
-    in the database.
-    """
-
-    sql_values = {}
-    for key, value in values.items():
-        if key in model.__associations__:
-            assoc = model.__associations__[key]
-            sql_values.update(assoc.values(value))
-        else:
-            sql_values[key] = value
-    return sql_values

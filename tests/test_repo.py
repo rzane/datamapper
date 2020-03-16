@@ -135,7 +135,8 @@ async def test_update_belongs_to(repo):
     user = await repo.insert(User())
     home = await repo.insert(Home())
 
-    home = await repo.update(Changeset(home).change({"owner": user}))
+    home = await repo.update(Changeset(home).put_assoc("owner", user))
+    await repo.preload(home, "owner")
     assert home.owner_id == user.id
     assert home.owner.id == user.id
 
