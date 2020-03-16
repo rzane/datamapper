@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 from typing import (
     Any,
     Callable,
@@ -36,8 +35,6 @@ class ChangesetDataWrapper(Generic[T]):
         elif isinstance(self.data, Model):
             attrs = {**self.data.attributes, **changes}
             return type(self.data)(**attrs)
-        else:
-            return self.data(**changes)
 
     def field_type(self, field: str) -> Type:
         if isinstance(self.data, Model):
@@ -54,29 +51,13 @@ class ChangesetDataWrapper(Generic[T]):
 
     @property
     def type(self) -> Type:
-        return type(self.data)
+        return type(self.data)  # pragma: no cover
 
 
 def dict_merge(dct: dict, merge_dct: dict) -> dict:
-    """
-    Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
-    updating only top-level keys, dict_merge recurses down into dicts nested
-    to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
-    ``dct``.
-    :param dct: dict onto which the merge is executed
-    :param merge_dct: dct merged into dct
-    :return: None
-    """
     dct_ = dict(dct)
     for k, v in merge_dct.items():
-        if (
-            k in dct_
-            and isinstance(dct_[k], dict)
-            and isinstance(merge_dct[k], collections.Mapping)
-        ):
-            dict_merge(dct_[k], merge_dct[k])
-        else:
-            dct_[k] = merge_dct[k]
+        dct_[k] = merge_dct[k]
     return dct_
 
 
@@ -251,7 +232,7 @@ class Changeset(Generic[T]):
             return result
 
     def __repr__(self) -> str:
-        return f"<Changeset data={self._wrapped_data.type}>"
+        return f"<Changeset data={self._wrapped_data.type}>"  # pragma: no cover
 
     def _update(self, **kwargs: Any) -> Changeset:
         # Can replace this with an immutable collection library.

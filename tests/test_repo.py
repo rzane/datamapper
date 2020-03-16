@@ -101,6 +101,12 @@ async def test_insert_can_take_a_changeset(repo):
 
 
 @pytest.mark.asyncio
+async def test_insert_cant_take_anything_else(repo):
+    with pytest.raises(ValueError):
+        await repo.insert(User)
+
+
+@pytest.mark.asyncio
 async def test_insert_belongs_to(repo):
     user = await repo.insert(User())
 

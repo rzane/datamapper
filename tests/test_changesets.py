@@ -63,6 +63,11 @@ def test_put_assoc_with_dict_data_is_invalid():
         )
 
 
+def test_put_assoc_works_only_for_belongs_to():
+    with pytest.raises(NotImplementedError):
+        Changeset(User()).put_assoc("home", Home())
+
+
 def test_validate_required():
     changeset = Changeset(User()).cast({}, ["foo"]).validate_required(["foo", "bar"])
     assert changeset.errors == {
@@ -102,6 +107,24 @@ def test_change_allows_one_to_add_invalid_changes():
     assert changeset.changes["id"] == "foo"
 
 
+def test_changes_with_valid_changeset():
+    changeset = Changeset(User(name="foo")).cast({"name": "bar"}, ["name"])
+    assert changeset.changes == {"name": "bar"}
+
+
+def test_changes_with_invalid_changeset():
+    changeset = Changeset(User(name="foo")).cast({"name": 42}, ["name"])
+    assert changeset.changes == {}
+
+
+def test_apply_changes_to_model():
+    changeset = Changeset(User(name="foo")).cast({"name": "bar"}, ["name"])
+    changed_user = changeset.apply_changes()
+    assert changed_user.name == "bar"
+
+
 def test_apply_changes_to_dict_changeset():
-    changeset = Changeset({"name": "foo"}).cast({"name": "bar", "baz": "qux"}, ["name", "baz"])
+    changeset = Changeset({"name": "foo"}).cast(
+        {"name": "bar", "baz": "qux"}, ["name", "baz"]
+    )
     assert changeset.apply_changes() == {"name": "bar", "baz": "qux"}
