@@ -87,6 +87,66 @@ def test_validate_change():
     }
 
 
+def test_validate_inclusion_valid():
+    assert (
+        Changeset(Person())
+        .cast(
+            {
+                "name": "Richard",
+                "age": 30,
+                "favorite_animals": ["cat", "bat", "rat", "weasel"],
+            },
+            ["name", "age", "favorite_animals"],
+        )
+        .validate_inclusion("favorite_animals", "weasel")
+    ).is_valid
+
+
+def test_validate_inclusion_invalid():
+    changeset = (
+        Changeset(Person())
+        .cast(
+            {"name": "Richard", "age": 30, "favorite_animals": ["cat", "bat", "rat"]},
+            ["name", "age", "favorite_animals"],
+        )
+        .validate_inclusion("favorite_animals", "ferret", "you love ferrets")
+    )
+
+    assert changeset.errors == {"favorite_animals": ["you love ferrets"]}
+
+
+def test_validate_exclusion_valid():
+    assert (
+        Changeset(Person())
+        .cast(
+            {
+                "name": "Richard",
+                "age": 30,
+                "favorite_animals": ["cat", "bat", "rat", "weasel"],
+            },
+            ["name", "age", "favorite_animals"],
+        )
+        .validate_exclusion("favorite_animals", "spider")
+    ).is_valid
+
+
+def test_validate_exclusion_invalid():
+    changeset = (
+        Changeset(Person())
+        .cast(
+            {
+                "name": "Richard",
+                "age": 30,
+                "favorite_animals": ["cat", "bat", "rat", "spider"],
+            },
+            ["name", "age", "favorite_animals"],
+        )
+        .validate_exclusion("favorite_animals", "spider", "you hate spiders")
+    )
+
+    assert changeset.errors == {"favorite_animals": ["you hate spiders"]}
+
+
 def test_validate_change_only_validates_if_field_is_changed():
     changeset = (
         Changeset(Person())

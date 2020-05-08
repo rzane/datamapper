@@ -193,8 +193,21 @@ class Changeset(Generic[T]):
 
         Skips the validation if `field` has no changes.
         """
-        existing_validators = self._field_validators.get(field, [])
-        self._field_validators[field] = existing_validators + [validator]
+        self._add_field_validator(field, validator)
+        return self
+
+    def validate_inclusion(self, field: str, value: Any, msg: str = "is invalid") -> Changeset:
+        def _validate_inclusion(vals: Any) -> Union[bool, str]:
+            return True if value in vals else msg
+
+        self._add_field_validator(field, _validate_inclusion)
+        return self
+
+    def validate_exclusion(self, field: str, value: Any, msg: str = "is invalid") -> Changeset:
+        def _validate_exclusion(vals: Any) -> Union[bool, str]:
+            return True if value not in vals else msg
+
+        self._add_field_validator(field, _validate_exclusion)
         return self
 
     def change(self, changes: dict) -> Changeset:
@@ -212,6 +225,10 @@ class Changeset(Generic[T]):
 
     def _field_type(self, field: str) -> Type:
         return self._wrapped_data.field_type(field)
+
+    def _add_field_validator(self, field: str, validator: FieldValidator) -> None:
+        existing_validators = self._field_validators.get(field, [])
+        self._field_validators[field] = existing_validators + [validator]
 
     @property
     def has_error(self) -> bool:
