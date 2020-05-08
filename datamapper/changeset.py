@@ -50,8 +50,14 @@ class ChangesetDataWrapper(Generic[T]):
         return self.data.association(field)
 
     @property
-    def type(self) -> Type:
-        return type(self.data)  # pragma: no cover
+    def attributes(self) -> dict:
+        if isinstance(self.data, dict):
+            return self.data
+        else:
+            return self.data.attributes
+
+    def __repr__(self) -> str:
+        return type(self.data).__name__
 
 
 def dict_merge(dct: dict, merge_dct: dict) -> dict:
@@ -232,7 +238,15 @@ class Changeset(Generic[T]):
             return result
 
     def __repr__(self) -> str:
-        return f"<Changeset data={self._wrapped_data.type}>"  # pragma: no cover
+        return (
+            f"<Changeset\n"
+            f" is_valid={self.is_valid}\n"
+            f" data={self._wrapped_data}{self._wrapped_data.attributes}\n"
+            f" params={self.params}\n"
+            f" changes={self.changes}\n"
+            f" errors={self.errors}"
+            ">"
+        )  # pragma: no cover
 
     def _update(self, **kwargs: Any) -> Changeset:
         # Can replace this with an immutable collection library.

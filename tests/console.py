@@ -5,6 +5,7 @@ from databases import Database
 from IPython import start_ipython
 
 from datamapper import Query, Repo
+from datamapper.changeset import Changeset
 from tests.support import Home, Pet, User, provision_database
 
 logging.basicConfig(level=logging.DEBUG)
@@ -20,6 +21,7 @@ context = {
     "database": database,
     "repo": repo,
     "Query": Query,
+    "Changeset": Changeset,
     "User": User,
     "Pet": Pet,
     "Home": Home,
