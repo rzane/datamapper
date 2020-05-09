@@ -20,44 +20,73 @@ from marshmallow import Schema, ValidationError, fields
 from datamapper.model import Association, BelongsTo, Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
-Data = Union[dict, Model]
+Data = Union[Tuple[dict, dict], Model]
 
-T = TypeVar("T", dict, Model)
+T = TypeVar("T", Tuple[dict, dict], Model)
 
 
 class ChangesetDataWrapper(Generic[T]):
+    @staticmethod
+    def instance(data: T) -> ChangesetDataWrapper:
+        if isinstance(data, Model):
+            return ModelChangesetDataWrapper(data)
+        elif isinstance(data, tuple):
+            return DictChangesetDataWrapper(data)
+        else:
+            raise AttributeError("Changeset data must be a Model or (dict, dict).")
+
     def __init__(self, data: T):
-        self.data: T = data
+        self.data: T = data  # pragma: no cover
 
     def apply_changes(self, changes: dict) -> T:
-        if isinstance(self.data, dict):
-            return dict_merge(self.data, changes)
-        elif isinstance(self.data, Model):
-            attrs = {**self.data.attributes, **changes}
-            return type(self.data)(**attrs)
+        raise NotImplementedError()  # pragma: no cover
 
     def field_type(self, field: str) -> Type:
-        if isinstance(self.data, Model):
-            column = self.data.__table__.columns.get(field)
-            return column.type if column is not None else None
-        else:
-            return type(self.data.get(field))
+        raise NotImplementedError()  # pragma: no cover
 
     def association(self, field: str) -> Association:
-        if not isinstance(self.data, Model):
-            raise ValueError("Data of type dict has no associations")
-
-        return self.data.association(field)
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def attributes(self) -> dict:
-        if isinstance(self.data, dict):
-            return self.data
-        else:
-            return self.data.attributes
+        raise NotImplementedError()  # pragma: no cover
 
     def __repr__(self) -> str:
-        return type(self.data).__name__
+        return type(self.data).__name__  # pragma: no cover
+
+
+class DictChangesetDataWrapper(ChangesetDataWrapper):
+    def __init__(self, data: Tuple[dict, dict]):
+        self.data: dict = data[0]
+        self.types: dict = data[1]
+
+    def apply_changes(self, changes: dict) -> dict:
+        return dict_merge(self.data, changes)
+
+    def field_type(self, field: str) -> type:
+        return self.types.get(field, type(None))
+
+    def association(self, field: str) -> Association:
+        raise ValueError("Data of type dict has no associations")
+
+
+class ModelChangesetDataWrapper(ChangesetDataWrapper):
+    def __init__(self, data: Model):
+        self.data: Model = data
+
+    def apply_changes(self, changes: dict) -> Model:
+        attrs = {**self.data.attributes, **changes}
+        return type(self.data)(**attrs)
+
+    def field_type(self, field: str) -> Type:
+        column = self.data.__table__.columns.get(field)
+        return column.type if column is not None else None
+
+    def association(self, field: str) -> Association:
+        return self.data.association(field)
+
+    def __repr__(self) -> str:
+        return type(self.data).__name__  # pragma: no cover
 
 
 def dict_merge(dct: dict, merge_dct: dict) -> dict:
@@ -149,7 +178,9 @@ class Changeset(Generic[T]):
     VALIDATOR_CLASS = MarshmallowValidator
 
     def __init__(self, data: T) -> None:
-        self._wrapped_data: ChangesetDataWrapper[T] = ChangesetDataWrapper(data)
+        self._wrapped_data: ChangesetDataWrapper[T] = ChangesetDataWrapper.instance(
+            data
+        )
 
         self.params: dict = {}
         self.permitted: set = set()
@@ -196,14 +227,18 @@ class Changeset(Generic[T]):
         self._add_field_validator(field, validator)
         return self
 
-    def validate_inclusion(self, field: str, value: Any, msg: str = "is invalid") -> Changeset:
+    def validate_inclusion(
+        self, field: str, value: Any, msg: str = "is invalid"
+    ) -> Changeset:
         def _validate_inclusion(vals: Any) -> Union[bool, str]:
             return True if value in vals else msg
 
         self._add_field_validator(field, _validate_inclusion)
         return self
 
-    def validate_exclusion(self, field: str, value: Any, msg: str = "is invalid") -> Changeset:
+    def validate_exclusion(
+        self, field: str, value: Any, msg: str = "is invalid"
+    ) -> Changeset:
         def _validate_exclusion(vals: Any) -> Union[bool, str]:
             return True if value not in vals else msg
 

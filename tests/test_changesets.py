@@ -57,7 +57,7 @@ def test_put_assoc_with_dict_data_is_invalid():
     user = User(id=1, name="Bear")
     with pytest.raises(ValueError):
         (
-            Changeset({})
+            Changeset(({}, {}))
             .cast({"name": "Big Blue House"}, ["name"])
             .put_assoc("owner", user)
         )
@@ -183,8 +183,35 @@ def test_apply_changes_to_model():
     assert changed_user.name == "bar"
 
 
-def test_apply_changes_to_dict_changeset():
-    changeset = Changeset({"name": "foo"}).cast(
-        {"name": "bar", "baz": "qux"}, ["name", "baz"]
+def test_schemaless_invalid():
+    cat = {"name": "Gordon"}
+    types = {"name": str, "age": int, "color": str}
+    permitted = types.keys()
+
+    changeset = Changeset((cat, types)).cast(
+        {"color": "brown", "age": "fourteen"}, permitted
     )
-    assert changeset.apply_changes() == {"name": "bar", "baz": "qux"}
+    assert changeset.errors == {"age": ["Not a valid integer."]}
+
+
+def test_schemaless_valid():
+    cat = {"name": "Gordon"}
+    types = {"name": str, "age": int, "color": str}
+    permitted = types.keys()
+
+    changeset = Changeset((cat, types)).cast({"color": "brown", "age": 14}, permitted)
+    assert changeset.is_valid
+
+
+def test_schemaless_apply_changes():
+    cat = {"name": "Gordon"}
+    types = {"name": str, "age": int, "color": str}
+    permitted = types.keys()
+
+    changeset = Changeset((cat, types)).cast({"color": "brown", "age": 14}, permitted)
+    assert changeset.apply_changes() == {"name": "Gordon", "age": 14, "color": "brown"}
+
+
+def test_invalid_data():
+    with pytest.raises(AttributeError):
+        Changeset("foo")
