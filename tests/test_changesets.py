@@ -225,6 +225,24 @@ def test_schemaless_apply_changes():
     assert changeset.apply_changes() == {"name": "Gordon", "age": 14, "color": "brown"}
 
 
+def test_on_changed():
+    def _slugify(changeset, title):
+        return changeset.put_change("slug", title.lower().replace(" ", "-"))
+
+    params = {
+        "title": "Crime and Punishment",
+        "publish_date": date(1866, 1, 1),
+    }
+    book = (
+        Changeset(Book())
+        .cast(params, ["title", "publish_date"])
+        .on_changed("title", _slugify)
+        .apply_changes()
+    )
+
+    assert book.slug == "crime-and-punishment"
+
+
 def test_fetch_change_from_changes():
     assert (
         Changeset(Book(title="Crime and Punishment"))
@@ -264,6 +282,7 @@ def test_put_change():
         .put_change("isbn", "01234567890")
         .changes["isbn"]
     ) == "01234567890"
+
 
 def test_invalid_data():
     with pytest.raises(AttributeError):

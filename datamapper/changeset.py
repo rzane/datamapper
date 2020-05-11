@@ -280,6 +280,20 @@ class Changeset(Generic[T]):
         """
         self._forced_changes[field] = value
         return self
+
+    def on_changed(
+        self, field: str, f: Callable[[Changeset, Any], Changeset]
+    ) -> Changeset:
+        """
+        If `field` has been changed, call callback function `f` with the value,
+        returning a new Changeset.
+        """
+        changed_value = self.fetch_change(field)
+        if changed_value is not None:
+            return f(self, changed_value)
+        else:
+            return self
+
     def apply_changes(self) -> T:
         """
         Apply the changeset's changes to the data.
