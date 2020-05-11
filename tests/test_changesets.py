@@ -1,5 +1,7 @@
+from datetime import date
+
 import pytest
-from sqlalchemy import BigInteger, Column, String
+import sqlalchemy as sa
 
 from datamapper.changeset import Changeset
 from datamapper.model import Associations, HasMany, HasOne, Model, Table
@@ -10,9 +12,9 @@ class Person(Model):
     __table__ = Table(
         "people",
         metadata,
-        Column("id", BigInteger, primary_key=True),
-        Column("name", String(255)),
-        Column("age", BigInteger),
+        sa.Column("id", sa.BigInteger, primary_key=True),
+        sa.Column("name", sa.String(255)),
+        sa.Column("age", sa.BigInteger),
     )
 
     __associations__ = Associations(
@@ -25,6 +27,17 @@ def is_30(age):
     if age != 30:
         return "not 30"
 
+
+class Book(Model):
+    __table__ = sa.Table(
+        "books",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("title", sa.String(255)),
+        sa.Column("isbn", sa.String(255)),
+        sa.Column("publish_date", sa.Date()),
+        sa.Column("slug", sa.String(255)),
+    )
 
 def test_cast_empty():
     changeset = Changeset(User()).cast({}, [])
@@ -211,6 +224,46 @@ def test_schemaless_apply_changes():
     changeset = Changeset((cat, types)).cast({"color": "brown", "age": 14}, permitted)
     assert changeset.apply_changes() == {"name": "Gordon", "age": 14, "color": "brown"}
 
+
+def test_fetch_change_from_changes():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"title": "The Brothers Karamazov"}, ["title"])
+        .fetch_change("title")
+    ) == "The Brothers Karamazov"
+
+
+def test_fetch_change_from_data():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .fetch_change("title")
+    ) is None
+
+
+def test_fetch_field_from_changes():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"title": "The Brothers Karamazov"}, ["title"])
+        .fetch_field("title")
+    ) == "The Brothers Karamazov"
+
+
+def test_fetch_field_from_data():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .fetch_field("title")
+    ) == "Crime and Punishment"
+
+
+def test_put_change():
+    assert (
+        Changeset(Book())
+        .cast({"title": "The Idiot"}, ["title"])
+        .put_change("isbn", "01234567890")
+        .changes["isbn"]
+    ) == "01234567890"
 
 def test_invalid_data():
     with pytest.raises(AttributeError):

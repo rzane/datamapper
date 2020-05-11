@@ -38,6 +38,9 @@ class ChangesetDataWrapper(Generic[T]):
     def __init__(self, data: T):
         self.data: T = data  # pragma: no cover
 
+    def get(self, field: str) -> Optional[Any]:
+        return self.attributes.get(field)
+
     def apply_changes(self, changes: dict) -> T:
         raise NotImplementedError()  # pragma: no cover
 
@@ -52,7 +55,7 @@ class ChangesetDataWrapper(Generic[T]):
         raise NotImplementedError()  # pragma: no cover
 
     def __repr__(self) -> str:
-        return type(self.data).__name__  # pragma: no cover
+        return self.data.__repr__()  # pragma: no cover
 
 
 class DictChangesetDataWrapper(ChangesetDataWrapper):
@@ -68,6 +71,10 @@ class DictChangesetDataWrapper(ChangesetDataWrapper):
 
     def association(self, field: str) -> Association:
         raise ValueError("Data of type dict has no associations")
+
+    @property
+    def attributes(self) -> dict:
+        return self.data  # pragma: no cover
 
 
 class ModelChangesetDataWrapper(ChangesetDataWrapper):
@@ -85,8 +92,9 @@ class ModelChangesetDataWrapper(ChangesetDataWrapper):
     def association(self, field: str) -> Association:
         return self.data.association(field)
 
-    def __repr__(self) -> str:
-        return type(self.data).__name__  # pragma: no cover
+    @property
+    def attributes(self) -> dict:
+        return self.data.attributes  # pragma: no cover
 
 
 def dict_merge(dct: dict, merge_dct: dict) -> dict:
@@ -210,6 +218,18 @@ class Changeset(Generic[T]):
         else:
             raise NotImplementedError()
 
+    def fetch_change(self, field: str) -> Optional[Any]:
+        """
+        Fetches a change from the changeset. Looks only in `changes`.
+        """
+        return self.changes.get(field)
+
+    def fetch_field(self, field: str) -> Optional[Any]:
+        """
+        Fetches a field from `changes` if it exists, falling back to `data`.
+        """
+        return self.changes.get(field) or self._wrapped_data.get(field)
+
     def validate_required(self, fields: List) -> Changeset:
         """
         Validate that `fields` are present in the changeset, either as changes or as data.
@@ -252,6 +272,14 @@ class Changeset(Generic[T]):
         self._forced_changes = dict_merge(self._forced_changes, changes)
         return self
 
+    def put_change(self, field: str, value: Any) -> Changeset:
+        """
+        Puts a change on the given `field` with `value`.
+
+        The value is stored without validation.
+        """
+        self._forced_changes[field] = value
+        return self
     def apply_changes(self) -> T:
         """
         Apply the changeset's changes to the data.
@@ -293,7 +321,7 @@ class Changeset(Generic[T]):
         return (
             f"<Changeset\n"
             f" is_valid={self.is_valid}\n"
-            f" data={self._wrapped_data}{self._wrapped_data.attributes}\n"
+            f" data={self._wrapped_data}\n"
             f" params={self.params}\n"
             f" changes={self.changes}\n"
             f" errors={self.errors}"
