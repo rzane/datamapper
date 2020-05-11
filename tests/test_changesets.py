@@ -35,7 +35,7 @@ class Book(Model):
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("title", sa.String(255)),
         sa.Column("isbn", sa.String(255)),
-        sa.Column("publish_date", sa.Date()),
+        sa.Column("publication_date", sa.Date()),
         sa.Column("slug", sa.String(255)),
     )
 
@@ -232,11 +232,11 @@ def test_on_changed():
 
     params = {
         "title": "Crime and Punishment",
-        "publish_date": date(1866, 1, 1),
+        "publication_date": date(1866, 1, 1),
     }
     book = (
         Changeset(Book())
-        .cast(params, ["title", "publish_date"])
+        .cast(params, ["title", "publication_date"])
         .on_changed("title", _slugify)
         .apply_changes()
     )
@@ -249,11 +249,11 @@ def test_on_changed_with_no_change():
         return changeset.put_change("slug", title.lower().replace(" ", "-"))
 
     params = {
-        "publish_date": date(1866, 1, 1),
+        "publication_date": date(1866, 1, 1),
     }
     changeset = (
         Changeset(Book(title="Crime and Punishment"))
-        .cast(params, ["title", "publish_date"])
+        .cast(params, ["title", "publication_date"])
         .on_changed("title", _slugify)
     )
     assert changeset.changes.get("slug") is None
