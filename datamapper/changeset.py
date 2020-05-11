@@ -12,6 +12,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 import sqlalchemy
@@ -263,6 +264,40 @@ class Changeset(Generic[T]):
             return True if value not in vals else msg
 
         self._add_field_validator(field, _validate_exclusion)
+        return self
+
+    def validate_length(
+        self,
+        field: str,
+        length: Optional[int] = None,
+        minimum: Optional[int] = None,
+        maximum: Optional[int] = None,
+        message: Optional[str] = None,
+    ) -> Changeset:
+        if length is not None:
+
+            def _validate_exact_length(val: Any) -> Union[bool, str]:
+                message_ = message or f"should be {length} characters"
+                return True if len(val) == length else message_
+
+            self._add_field_validator(field, _validate_exact_length)
+
+        if minimum is not None:
+
+            def _validate_min_length(val: Any) -> Union[bool, str]:
+                message_ = message or f"should be at least {minimum} characters"
+                return True if len(val) >= cast(int, minimum) else message_
+
+            self._add_field_validator(field, _validate_min_length)
+
+        if maximum is not None:
+
+            def _validate_max_length(val: Any) -> Union[bool, str]:
+                message_ = message or f"should be at most {maximum} characters"
+                return True if len(val) <= cast(int, maximum) else message_
+
+            self._add_field_validator(field, _validate_max_length)
+
         return self
 
     def change(self, changes: dict) -> Changeset:

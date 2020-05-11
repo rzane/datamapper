@@ -300,6 +300,38 @@ def test_put_change():
     ) == "01234567890"
 
 
+def test_validate_length_exact():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "123456789"}, ["isbn"])
+        .validate_length("isbn", 10)
+    ).errors["isbn"] == ["should be 10 characters"]
+
+
+def test_validate_length_minimum():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "123456789"}, ["isbn"])
+        .validate_length("isbn", minimum=10)
+    ).errors["isbn"] == ["should be at least 10 characters"]
+
+
+def test_validate_length_maximum():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "12345678901234"}, ["isbn"])
+        .validate_length("isbn", maximum=13)
+    ).errors["isbn"] == ["should be at most 13 characters"]
+
+
+def test_validate_length_in_between():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "123456789"}, ["isbn"])
+        .validate_length("isbn", minimum=9, maximum=9)
+    ).is_valid
+
+
 def test_invalid_data():
     with pytest.raises(AttributeError):
         Changeset("foo")
