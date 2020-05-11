@@ -39,6 +39,7 @@ class Book(Model):
         sa.Column("slug", sa.String(255)),
     )
 
+
 def test_cast_empty():
     changeset = Changeset(User()).cast({}, [])
     assert changeset.is_valid
@@ -241,6 +242,21 @@ def test_on_changed():
     )
 
     assert book.slug == "crime-and-punishment"
+
+
+def test_on_changed_with_no_change():
+    def _slugify(changeset, title):
+        return changeset.put_change("slug", title.lower().replace(" ", "-"))
+
+    params = {
+        "publish_date": date(1866, 1, 1),
+    }
+    changeset = (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast(params, ["title", "publish_date"])
+        .on_changed("title", _slugify)
+    )
+    assert changeset.changes.get("slug") is None
 
 
 def test_fetch_change_from_changes():
