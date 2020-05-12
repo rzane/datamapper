@@ -15,6 +15,7 @@ class Person(Model):
         sa.Column("id", sa.BigInteger, primary_key=True),
         sa.Column("name", sa.String(255)),
         sa.Column("age", sa.BigInteger),
+        sa.Column("favorite_animal", sa.String(255)),
     )
 
     __associations__ = Associations(
@@ -105,14 +106,10 @@ def test_validate_inclusion_valid():
     assert (
         Changeset(Person())
         .cast(
-            {
-                "name": "Richard",
-                "age": 30,
-                "favorite_animals": ["cat", "bat", "rat", "weasel"],
-            },
-            ["name", "age", "favorite_animals"],
+            {"name": "Richard", "age": 30, "favorite_animal": "weasel"},
+            ["name", "age", "favorite_animal"],
         )
-        .validate_inclusion("favorite_animals", "weasel")
+        .validate_inclusion("favorite_animals", ["weasel", "bat"])
     ).is_valid
 
 
@@ -120,27 +117,23 @@ def test_validate_inclusion_invalid():
     changeset = (
         Changeset(Person())
         .cast(
-            {"name": "Richard", "age": 30, "favorite_animals": ["cat", "bat", "rat"]},
-            ["name", "age", "favorite_animals"],
+            {"name": "Richard", "age": 30, "favorite_animal": "bat"},
+            ["name", "age", "favorite_animal"],
         )
-        .validate_inclusion("favorite_animals", "ferret", "you love ferrets")
+        .validate_inclusion("favorite_animal", ["weasel"], "not a weasel")
     )
 
-    assert changeset.errors == {"favorite_animals": ["you love ferrets"]}
+    assert changeset.errors == {"favorite_animal": ["not a weasel"]}
 
 
 def test_validate_exclusion_valid():
     assert (
         Changeset(Person())
         .cast(
-            {
-                "name": "Richard",
-                "age": 30,
-                "favorite_animals": ["cat", "bat", "rat", "weasel"],
-            },
-            ["name", "age", "favorite_animals"],
+            {"name": "Richard", "age": 30, "favorite_animal": "weasel"},
+            ["name", "age", "favorite_animal"],
         )
-        .validate_exclusion("favorite_animals", "spider")
+        .validate_exclusion("favorite_animal", ["spider"])
     ).is_valid
 
 
@@ -148,17 +141,15 @@ def test_validate_exclusion_invalid():
     changeset = (
         Changeset(Person())
         .cast(
-            {
-                "name": "Richard",
-                "age": 30,
-                "favorite_animals": ["cat", "bat", "rat", "spider"],
-            },
-            ["name", "age", "favorite_animals"],
+            {"name": "Richard", "age": 30, "favorite_animal": "spider"},
+            ["name", "age", "favorite_animal"],
         )
-        .validate_exclusion("favorite_animals", "spider", "you hate spiders")
+        .validate_exclusion(
+            "favorite_animal", ["spider"], "def not your favorite animal"
+        )
     )
 
-    assert changeset.errors == {"favorite_animals": ["you hate spiders"]}
+    assert changeset.errors == {"favorite_animal": ["def not your favorite animal"]}
 
 
 def test_validate_change_only_validates_if_field_is_changed():

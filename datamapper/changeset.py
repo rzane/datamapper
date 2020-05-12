@@ -249,18 +249,18 @@ class Changeset(Generic[T]):
         return self
 
     def validate_inclusion(
-        self, field: str, value: Any, msg: str = "is invalid"
+        self, field: str, vals: Any, msg: str = "is invalid"
     ) -> Changeset:
-        def _validate_inclusion(vals: Any) -> Union[bool, str]:
+        def _validate_inclusion(value: Any) -> Union[bool, str]:
             return True if value in vals else msg
 
         self._add_field_validator(field, _validate_inclusion)
         return self
 
     def validate_exclusion(
-        self, field: str, value: Any, msg: str = "is invalid"
+        self, field: str, vals: Any, msg: str = "is invalid"
     ) -> Changeset:
-        def _validate_exclusion(vals: Any) -> Union[bool, str]:
+        def _validate_exclusion(value: Any) -> Union[bool, str]:
             return True if value not in vals else msg
 
         self._add_field_validator(field, _validate_exclusion)
