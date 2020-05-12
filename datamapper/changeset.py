@@ -201,7 +201,7 @@ class Changeset(Generic[T]):
 
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
         """
-        Applies `params` as changes to the changeset, provided that their keys are `permitted`.
+        Applies `params` as changes to the changeset, provided that their keys are in `permitted` and their types are correct.
         """
         permitted_params = {k: v for (k, v) in params.items() if k in permitted}
         return self._update(
@@ -328,6 +328,12 @@ class Changeset(Generic[T]):
             return f(self, changed_value)
         else:
             return self
+
+    def pipe(self, f: Callable[[Changeset], Changeset]) -> Changeset:
+        """
+        Pipe the Changeset into the function f, returning a new Changeset.
+        """
+        return f(self)
 
     def apply_changes(self) -> T:
         """
