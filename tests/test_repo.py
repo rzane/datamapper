@@ -1,24 +1,9 @@
 import pytest
-from databases import Database
 from sqlalchemy import text
 
-from datamapper import Query, Repo
-from datamapper.changeset import Changeset
+from datamapper import Query, Changeset
 from datamapper.errors import InvalidChangesetError
-from tests.support import DATABASE_URLS, Home, Pet, User, provision_database
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_database(request):
-    """Create database tables before running the test suite"""
-    for url in DATABASE_URLS:
-        provision_database(url)
-
-
-@pytest.fixture(scope="function", params=DATABASE_URLS)
-async def repo(request):
-    async with Database(request.param, force_rollback=True) as database:
-        yield Repo(database)
+from tests.support import Home, Pet, User
 
 
 @pytest.mark.asyncio
