@@ -21,12 +21,14 @@ from marshmallow import Schema, ValidationError, fields
 from datamapper.model import Association, BelongsTo, Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
-Data = Union[Tuple[dict, dict], Model]
+Data = Union[dict, Model]
 
 T = TypeVar("T", Tuple[dict, dict], Model)
 
 
 class ChangesetDataWrapper(Generic[T]):
+    data: Data
+
     @staticmethod
     def instance(data: T) -> ChangesetDataWrapper:
         if isinstance(data, Model):
@@ -36,13 +38,10 @@ class ChangesetDataWrapper(Generic[T]):
         else:
             raise AttributeError("Changeset data must be a Model or (dict, dict).")
 
-    def __init__(self, data: T):
-        self.data: T = data  # pragma: no cover
-
     def get(self, field: str, default: Any = None) -> Optional[Any]:
         return self.attributes.get(field, default)
 
-    def apply_changes(self, changes: dict) -> T:
+    def apply_changes(self, changes: dict) -> Data:
         raise NotImplementedError()  # pragma: no cover
 
     def field_type(self, field: str) -> Type:
@@ -59,16 +58,16 @@ class ChangesetDataWrapper(Generic[T]):
         return self.data.__repr__()  # pragma: no cover
 
 
-class DictChangesetDataWrapper(ChangesetDataWrapper):
+class DictChangesetDataWrapper(ChangesetDataWrapper[Tuple[dict, dict]]):
     def __init__(self, data: Tuple[dict, dict]):
         self.data: dict = data[0]
-        self.types: dict = data[1]
+        self._types: dict = data[1]
 
     def apply_changes(self, changes: dict) -> dict:
         return dict_merge(self.data, changes)
 
     def field_type(self, field: str) -> type:
-        return self.types.get(field, type(None))
+        return self._types.get(field, type(None))
 
     def association(self, field: str) -> Association:
         raise ValueError("Data of type dict has no associations")
@@ -78,7 +77,7 @@ class DictChangesetDataWrapper(ChangesetDataWrapper):
         return self.data  # pragma: no cover
 
 
-class ModelChangesetDataWrapper(ChangesetDataWrapper):
+class ModelChangesetDataWrapper(ChangesetDataWrapper[Model]):
     def __init__(self, data: Model):
         self.data: Model = data
 
@@ -342,7 +341,7 @@ class Changeset(Generic[T]):
         """
         return f(self)
 
-    def apply_changes(self) -> T:
+    def apply_changes(self) -> Data:
         """
         Apply the changeset's changes to the data.
         """
@@ -398,5 +397,5 @@ class Changeset(Generic[T]):
         return self
 
     @property
-    def data(self) -> T:
+    def data(self) -> Data:
         return self._wrapped_data.data
