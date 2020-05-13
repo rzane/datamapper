@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 from datamapper import Query, Repo
 from datamapper.changeset import Changeset
+from datamapper.errors import InvalidChangesetError
 from tests.support import DATABASE_URLS, Home, Pet, User, provision_database
 
 
@@ -276,10 +277,13 @@ async def test_insert_from_invalid_changeset(repo):
     changeset = (
         Changeset(User()).cast({"name": "Richard"}, ["name"]).validate_required(["foo"])
     )
-    invalid_changeset = await repo.insert(changeset)
 
-    assert isinstance(invalid_changeset, Changeset)
-    assert not invalid_changeset.is_valid
+    with pytest.raises(InvalidChangesetError) as info:
+        await repo.insert(changeset)
+
+    assert info.value.action == "insert"
+    assert isinstance(info.value.changeset, Changeset)
+    assert "could not perform insert" in str(info.value)
 
 
 @pytest.mark.asyncio
@@ -298,10 +302,13 @@ async def test_update_from_invalid_changeset(repo):
     changeset = (
         Changeset(user).cast({"name": "Richard"}, ["name"]).validate_required(["foo"])
     )
-    invalid_changeset = await repo.update(changeset)
 
-    assert isinstance(invalid_changeset, Changeset)
-    assert not invalid_changeset.is_valid
+    with pytest.raises(InvalidChangesetError) as info:
+        await repo.update(changeset)
+
+    assert info.value.action == "update"
+    assert isinstance(info.value.changeset, Changeset)
+    assert "could not perform update" in str(info.value)
 
 
 @pytest.mark.asyncio

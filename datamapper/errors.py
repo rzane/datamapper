@@ -1,4 +1,9 @@
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from datamapper.changeset import Changeset  # pragma: no cover
 
 __all__ = [
     "Error",
@@ -61,3 +66,13 @@ class ConflictingAliasError(Error):
 class InvalidExpressionError(Error):
     def __init__(self, value: Any):
         super().__init__(f"`{type(value).__name__}` is not a valid query expression")
+
+
+class InvalidChangesetError(Error):
+    def __init__(self, action: str, changeset: Changeset):
+        super().__init__(
+            f"could not perform {action} because changeset is invalid:\n\n{changeset}"
+        )
+
+        self.action = action
+        self.changeset = changeset

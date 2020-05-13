@@ -6,6 +6,7 @@ from typing_extensions import Protocol
 
 from datamapper._utils import assert_one, to_list, to_tree
 from datamapper.changeset import Changeset
+from datamapper.errors import InvalidChangesetError
 from datamapper.model import Association, Cardinality, Model
 from datamapper.query import Query
 
@@ -129,7 +130,7 @@ class Repo:
         """
         changeset = cast_changeset(model_or_changeset)
         if not changeset.is_valid:
-            return changeset
+            raise InvalidChangesetError(action="insert", changeset=changeset)
 
         model = changeset.data
         sql = model.__table__.insert().values(**changeset.changes)
@@ -147,7 +148,7 @@ class Repo:
             await repo.update(changeset)
         """
         if not changeset.is_valid:
-            return changeset
+            raise InvalidChangesetError(action="update", changeset=changeset)
 
         record = changeset.data
         query = record.to_query()
