@@ -6,18 +6,18 @@ if TYPE_CHECKING:
     from datamapper.changeset import Changeset  # pragma: no cover
 
 __all__ = [
-    "ConflictingAliasError",
     "Error",
+    "UnknownColumnError",
+    "UnknownAssociationError",
+    "UnknownAliasError",
+    "NoResultsError",
+    "MultipleResultsError",
+    "NotLoadedError",
+    "MissingJoinError",
+    "ConflictingAliasError",
     "InvalidExpressionError",
     "InvalidSelectError",
-    "MissingJoinError",
-    "MultipleResultsError",
-    "MultipleResultsError",
-    "NoResultsError",
-    "NotLoadedError",
-    "UnknownAliasError",
-    "UnknownAssociationError",
-    "UnknownColumnError",
+    "InvalidChangesetError",
 ]
 
 
