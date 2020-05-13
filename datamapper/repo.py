@@ -6,6 +6,7 @@ from typing_extensions import Protocol
 
 from datamapper._utils import assert_one, to_list, to_tree
 from datamapper.changeset import Changeset
+from datamapper.errors import InvalidChangesetError
 from datamapper.model import Association, Cardinality, Model
 from datamapper.query import Query
 
@@ -116,9 +117,7 @@ class Repo:
         sql = func.count().select().select_from(sql)
         return await self.database.fetch_val(sql)
 
-    async def insert(
-        self, model_or_changeset: Union[Model, Changeset[Model]]
-    ) -> Union[Model, Changeset]:
+    async def insert(self, model_or_changeset: Union[Model, Changeset[Model]]) -> Model:
         """
         Insert a record into the database.
 
@@ -129,14 +128,14 @@ class Repo:
         """
         changeset = cast_changeset(model_or_changeset)
         if not changeset.is_valid:
-            return changeset
+            raise InvalidChangesetError(action="insert", changeset=changeset)
 
         model = changeset.data
         sql = model.__table__.insert().values(**changeset.changes)
         record_id = await self.database.execute(sql)
         return changeset.change({"id": record_id}).apply_changes()
 
-    async def update(self, changeset: Changeset) -> Union[Model, Changeset]:
+    async def update(self, changeset: Changeset) -> Model:
         """
         Update a record in the database.
 
@@ -147,7 +146,7 @@ class Repo:
             await repo.update(changeset)
         """
         if not changeset.is_valid:
-            return changeset
+            raise InvalidChangesetError(action="update", changeset=changeset)
 
         record = changeset.data
         query = record.to_query()
