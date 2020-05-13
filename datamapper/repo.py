@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Any, List, Optional, Union
 
 from databases import Database
@@ -9,6 +10,7 @@ from datamapper.changeset import Changeset
 from datamapper.errors import InvalidChangesetError
 from datamapper.model import Association, Cardinality, Model
 from datamapper.query import Query
+from datamapper.multi import Multi
 
 
 class Queryable(Protocol):
@@ -35,6 +37,10 @@ class Repo:
 
     def __init__(self, database: Database):
         self.database = database
+
+    async def transaction(self, multi: Multi) -> dict:
+        async with self.database.transaction():
+            return await multi._apply(self)
 
     async def all(self, queryable: Queryable) -> List[Model]:
         """
