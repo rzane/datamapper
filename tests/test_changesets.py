@@ -323,6 +323,17 @@ def test_validate_length_in_between():
     ).is_valid
 
 
+def test_get_change_found():
+    assert (Changeset(Book()).put_change("foo", "bar").get_change("foo")) == "bar"
+
+
+def test_get_change_not_found_default_value():
+    assert (Changeset(Book()).get_change("foo")) is None
+
+
+def test_get_change_not_found_custom_value():
+    assert (Changeset(Book()).get_change("foo", "baz")) == "baz"
+
 def test_invalid_data():
     with pytest.raises(AttributeError):
         Changeset("foo")

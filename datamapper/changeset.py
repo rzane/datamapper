@@ -225,6 +225,12 @@ class Changeset(Generic[T]):
         """
         return self.changes.get(field)
 
+    def get_change(self, field: str, default: Any = None) -> Optional[Any]:
+        """
+        Gets a change or returns a default value.
+        """
+        return self.changes.get(field, default)
+
     def fetch_field(self, field: str) -> Optional[Any]:
         """
         Fetches a field from `changes` if it exists, falling back to `data`.
