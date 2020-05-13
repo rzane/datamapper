@@ -365,14 +365,14 @@ async def test_select_nested(repo):
 
 @pytest.mark.asyncio
 async def test_select_raw(repo):
-    await repo.insert(User)
+    await repo.insert(User())
     query = Query(User).select(raw(100))
     assert await repo.one(query) == 100
 
 
 @pytest.mark.asyncio
 async def test_select_call(repo):
-    user = await repo.insert(User, name="Fred")
+    user = await repo.insert(User(name="Fred"))
     query = Query(User).select(call(handle_call, "id", raw(100), name="name"))
     assert await repo.one(query) == ((user.id, 100), {"name": user.name})
 
