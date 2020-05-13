@@ -42,7 +42,7 @@ class UnknownAliasError(Error):
 
 class NoResultsError(Error):
     def __init__(self) -> None:
-        super().__init__(f"expected at least one result but got none")
+        super().__init__("expected at least one result but got none")
 
 
 class MultipleResultsError(Error):

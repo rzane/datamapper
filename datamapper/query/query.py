@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Mapping, Optional, Type, Union, cast
+from typing import Any, Callable, List, Mapping, Optional, Type, Union
 
 from sqlalchemy import Column, Table, text
 from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
