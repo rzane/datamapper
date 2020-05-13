@@ -117,9 +117,7 @@ class Repo:
         sql = func.count().select().select_from(sql)
         return await self.database.fetch_val(sql)
 
-    async def insert(
-        self, model_or_changeset: Union[Model, Changeset[Model]]
-    ) -> Union[Model, Changeset]:
+    async def insert(self, model_or_changeset: Union[Model, Changeset[Model]]) -> Model:
         """
         Insert a record into the database.
 
@@ -137,7 +135,7 @@ class Repo:
         record_id = await self.database.execute(sql)
         return changeset.change({"id": record_id}).apply_changes()
 
-    async def update(self, changeset: Changeset) -> Union[Model, Changeset]:
+    async def update(self, changeset: Changeset) -> Model:
         """
         Update a record in the database.
 
