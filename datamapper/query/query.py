@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Optional, Type, Union, cast
+from typing import Any, Callable, List, Mapping, Optional, Type, Union, cast
 
-from sqlalchemy import Column, Table
+from sqlalchemy import Column, Table, text
 from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
 
 import datamapper.model as model
 from datamapper._utils import get_column
-from datamapper.errors import InvalidExpressionError
+from datamapper.errors import InvalidExpressionError, InvalidSelectError
 from datamapper.query.alias_tracker import AliasTracker
 from datamapper.query.join import Join, to_join_tree
 from datamapper.query.parser import parse_column, parse_order, parse_where
 
 Statement = Union[Select, Update, Delete]
-SelectClause = Union[ClauseElement, str, list, dict]
+SelectClause = Union[ClauseElement, str, list, dict, "raw", "call"]
 WhereClause = Union[ClauseElement, dict]
 OrderClause = Union[ClauseElement, str]
 
@@ -329,13 +329,16 @@ class Query:
         return sql.order_by(*clauses)
 
     def __build_select(self, sql: Statement, tracker: AliasTracker) -> Statement:
-        clauses: List[ClauseElement] = []
-        self.__reduce_select(clauses, self._select, tracker)
+        clauses = self.__reduce_select([], self._select, tracker)
+
+        if len(clauses) == 0:
+            raise InvalidSelectError()
+
         return sql.with_only_columns(clauses)
 
     def __reduce_select(
         self, result: List[ClauseElement], select: SelectClause, tracker: AliasTracker
-    ) -> None:
+    ) -> List[ClauseElement]:
         if isinstance(select, ClauseElement):
             result.append(select)
 
@@ -350,8 +353,17 @@ class Query:
             for value in select.values():
                 self.__reduce_select(result, value, tracker)
 
+        elif isinstance(select, raw):
+            result.append(text("1"))
+
+        elif isinstance(select, call):
+            self.__reduce_select(result, select.args, tracker)
+            self.__reduce_select(result, select.kwargs, tracker)
+
         else:
             raise InvalidExpressionError(select)
+
+        return result
 
     def __column(self, name: str, tracker: AliasTracker) -> Column:
         name, alias = parse_column(name)
@@ -403,4 +415,57 @@ def _build_result(select: SelectClause, values: list) -> Any:
     if isinstance(select, dict):
         return {key: _build_result(item, values) for key, item in select.items()}
 
+    if isinstance(select, raw):
+        values.pop(0)
+        return select.value
+
+    if isinstance(select, call):
+        args = _build_result(select.args, values)
+        kwargs = _build_result(select.kwargs, values)
+        return select.func(*args, **kwargs)
+
     raise InvalidExpressionError(select)
+
+
+class raw:
+    """
+    Used to return a literal value from a query without ever sending it to the
+    database.
+
+    Once executed, the query in the example below will return `{"old": True}`
+    for each row returned from the database.
+
+    Example::
+
+        Query(User).where(age__gt=100).select(raw({"old": True}))
+        SELECT 1 FROM users WHERE users.age > 100
+    """
+
+    def __init__(self, value: Any):
+        self.value = value
+
+
+class call:
+    """
+    Used to customize how results are deserialized when they are returned from
+    the database.
+
+    Once executed, the query in the example below will call `is_old` with the
+    age of each user in the resulting query
+
+    In the example below, `is_old` will be called with the age of each user.
+    The result of executing this query will be a list of boolean values.
+
+    Example::
+
+        def is_old(age):
+            return age > 100
+
+        Query(User).select(call(is_old, "age"))
+        # SELECT users.age FROM users
+    """
+
+    def __init__(self, func: Callable, *args: SelectClause, **kwargs: SelectClause):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
