@@ -334,6 +334,14 @@ def test_get_change_not_found_default_value():
 def test_get_change_not_found_custom_value():
     assert (Changeset(Book()).get_change("foo", "baz")) == "baz"
 
+
+def test_pipe():
+    def _put_foo(changeset: Changeset) -> Changeset:
+        return changeset.put_change("foo", "bar")
+
+    assert Changeset(Book()).pipe(_put_foo).changes == {"foo": "bar"}
+
+
 def test_invalid_data():
     with pytest.raises(AttributeError):
         Changeset("foo")
