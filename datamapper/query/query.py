@@ -65,11 +65,6 @@ class Query:
         if self._select is None:
             return self._model._deserialize(dict(row))
         else:
-            # FIXME: This is a workaround for this bug:
-            #   https://github.com/encode/databases/pull/173
-            if hasattr(row, "_row"):
-                row = cast(Any, row)._row
-
             values = list(row)
             result = _build_result(self._select, values)
             assert len(values) == 0
