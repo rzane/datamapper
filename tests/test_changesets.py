@@ -263,36 +263,58 @@ def test_on_changed_when_changing_value_to_none():
     assert changeset.changes.get("slug") == "slug-removed"
 
 
-def test_fetch_change_from_changes():
+def test_get_change_from_changes():
     assert (
         Changeset(Book(title="Crime and Punishment"))
         .cast({"title": "The Brothers Karamazov"}, ["title"])
-        .fetch_change("title")
+        .get_change("title")
     ) == "The Brothers Karamazov"
 
 
-def test_fetch_change_from_data():
+def test_get_change_not_found():
     assert (
         Changeset(Book(title="Crime and Punishment"))
         .cast({"isbn": "1234567890"}, ["isbn"])
-        .fetch_change("title")
+        .get_change("title")
     ) is None
 
 
-def test_fetch_field_from_changes():
-    assert (
-        Changeset(Book(title="Crime and Punishment"))
-        .cast({"title": "The Brothers Karamazov"}, ["title"])
-        .fetch_field("title")
-    ) == "The Brothers Karamazov"
-
-
-def test_fetch_field_from_data():
+def test_get_change_not_found_with_custom_default():
     assert (
         Changeset(Book(title="Crime and Punishment"))
         .cast({"isbn": "1234567890"}, ["isbn"])
-        .fetch_field("title")
+        .get_change("title", "foo")
+    ) == "foo"
+
+
+def test_get_field_from_changes():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"title": "The Brothers Karamazov"}, ["title"])
+        .get_field("title")
+    ) == "The Brothers Karamazov"
+
+
+def test_get_field_from_data():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .get_field("title")
     ) == "Crime and Punishment"
+
+
+def test_get_field_not_found():
+    assert (
+        Changeset(Book()).cast({"isbn": "1234567890"}, ["isbn"]).get_field("title")
+    ) is None
+
+
+def test_get_field_not_found_custom_default():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .get_field("title", "foo")
+    ) == "foo"
 
 
 def test_put_change():

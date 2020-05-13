@@ -39,8 +39,8 @@ class ChangesetDataWrapper(Generic[T]):
     def __init__(self, data: T):
         self.data: T = data  # pragma: no cover
 
-    def get(self, field: str) -> Optional[Any]:
-        return self.attributes.get(field)
+    def get(self, field: str, default: Any = None) -> Optional[Any]:
+        return self.attributes.get(field, default)
 
     def apply_changes(self, changes: dict) -> T:
         raise NotImplementedError()  # pragma: no cover
@@ -222,11 +222,8 @@ class Changeset(Generic[T]):
         else:
             raise NotImplementedError()
 
-    def fetch_change(self, field: str) -> Optional[Any]:
-        """
-        Fetches a change from the changeset. Looks only in `changes`.
-        """
-        return self.changes.get(field)
+    def has_change(self, field: str) -> bool:
+        return field in self.changes
 
     def get_change(self, field: str, default: Any = None) -> Optional[Any]:
         """
@@ -234,11 +231,13 @@ class Changeset(Generic[T]):
         """
         return self.changes.get(field, default)
 
-    def fetch_field(self, field: str) -> Optional[Any]:
+    def get_field(self, field: str, default: Any = None) -> Optional[Any]:
         """
         Fetches a field from `changes` if it exists, falling back to `data`.
         """
-        return self.changes.get(field) or self._wrapped_data.get(field)
+        return self.changes.get(field, default) or self._wrapped_data.get(
+            field, default
+        )
 
     def validate_required(self, fields: List) -> Changeset:
         """
@@ -316,9 +315,6 @@ class Changeset(Generic[T]):
         self._forced_changes = dict_merge(self._forced_changes, changes)
         return self
 
-    def has_change(self, field: str) -> bool:
-        return field in self.changes
-
     def put_change(self, field: str, value: Any) -> Changeset:
         """
         Puts a change on the given `field` with `value`.
@@ -336,7 +332,7 @@ class Changeset(Generic[T]):
         returning a new Changeset.
         """
         if self.has_change(field):
-            return f(self, self.fetch_change(field))
+            return f(self, self.get_change(field))
         else:
             return self
 
