@@ -30,11 +30,11 @@ class ChangesetDataWrapper(Generic[T]):
         self.data: T = data
 
     def apply_changes(self, changes: dict) -> T:
-        if isinstance(self.data, dict):
-            return dict_merge(self.data, changes)
-        elif isinstance(self.data, Model):
+        if isinstance(self.data, Model):
             attrs = {**self.data.attributes, **changes}
             return type(self.data)(**attrs)
+        elif isinstance(self.data, dict):
+            return dict_merge(self.data, changes)
 
     def field_type(self, field: str) -> Type:
         if isinstance(self.data, Model):
