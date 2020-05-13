@@ -174,7 +174,10 @@ class MarshmallowValidator:
             else fields.Raw
         )
 
-        type_args: Dict[str, Any] = {"required": name in self.changeset.required}
+        type_args: Dict[str, Any] = {
+            "allow_none": True,
+            "required": name in self.changeset.required,
+        }
 
         field_validators = self.changeset._field_validators.get(name)
         if field_validators:
@@ -313,6 +316,9 @@ class Changeset(Generic[T]):
         self._forced_changes = dict_merge(self._forced_changes, changes)
         return self
 
+    def has_change(self, field: str) -> bool:
+        return field in self.changes
+
     def put_change(self, field: str, value: Any) -> Changeset:
         """
         Puts a change on the given `field` with `value`.
@@ -329,9 +335,8 @@ class Changeset(Generic[T]):
         If `field` has been changed, call callback function `f` with the value,
         returning a new Changeset.
         """
-        changed_value = self.fetch_change(field)
-        if changed_value is not None:
-            return f(self, changed_value)
+        if self.has_change(field):
+            return f(self, self.fetch_change(field))
         else:
             return self
 

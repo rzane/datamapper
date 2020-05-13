@@ -250,6 +250,19 @@ def test_on_changed_with_no_change():
     assert changeset.changes.get("slug") is None
 
 
+def test_on_changed_when_changing_value_to_none():
+    params = {
+        "title": None,
+        "publication_date": date(1866, 1, 1),
+    }
+    changeset = (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast(params, ["title", "publication_date"])
+        .on_changed("title", lambda cs, v: cs.put_change("slug", "slug-removed"))
+    )
+    assert changeset.changes.get("slug") == "slug-removed"
+
+
 def test_fetch_change_from_changes():
     assert (
         Changeset(Book(title="Crime and Punishment"))
