@@ -428,11 +428,43 @@ def _build_result(select: SelectClause, values: list) -> Any:
 
 
 class raw:
+    """
+    Used to return a literal value from a query without ever sending it to the
+    database.
+
+    Once executed, the query in the example below will return `{"old": True}`
+    for each row returned from the database.
+
+    Example::
+
+        Query(User).where(age__gt=100).select(raw({"old": True}))
+        SELECT 1 FROM users WHERE users.age > 100
+    """
+
     def __init__(self, value: Any):
         self.value = value
 
 
 class call:
+    """
+    Used to customize how results are deserialized when they are returned from
+    the database.
+
+    Once executed, the query in the example below will call `is_old` with the
+    age of each user in the resulting query
+
+    In the example below, `is_old` will be called with the age of each user.
+    The result of executing this query will be a list of boolean values.
+
+    Example::
+
+        def is_old(age):
+            return age > 100
+
+        Query(User).select(call(is_old, "age"))
+        # SELECT users.age FROM users
+    """
+
     def __init__(self, func: Callable, *args: SelectClause, **kwargs: SelectClause):
         self.func = func
         self.args = args
