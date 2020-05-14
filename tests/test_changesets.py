@@ -1,5 +1,7 @@
+from datetime import date
+
 import pytest
-from sqlalchemy import BigInteger, Column, String
+import sqlalchemy as sa
 
 from datamapper.changeset import Changeset
 from datamapper.model import Associations, HasMany, HasOne, Model, Table
@@ -10,9 +12,10 @@ class Person(Model):
     __table__ = Table(
         "people",
         metadata,
-        Column("id", BigInteger, primary_key=True),
-        Column("name", String(255)),
-        Column("age", BigInteger),
+        sa.Column("id", sa.BigInteger, primary_key=True),
+        sa.Column("name", sa.String(255)),
+        sa.Column("age", sa.BigInteger),
+        sa.Column("favorite_animal", sa.String(255)),
     )
 
     __associations__ = Associations(
@@ -24,6 +27,18 @@ class Person(Model):
 def is_30(age):
     if age != 30:
         return "not 30"
+
+
+class Book(Model):
+    __table__ = sa.Table(
+        "books",
+        metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("title", sa.String(255)),
+        sa.Column("isbn", sa.String(255)),
+        sa.Column("publication_date", sa.Date()),
+        sa.Column("slug", sa.String(255)),
+    )
 
 
 def test_cast_empty():
@@ -57,7 +72,7 @@ def test_put_assoc_with_dict_data_is_invalid():
     user = User(id=1, name="Bear")
     with pytest.raises(ValueError):
         (
-            Changeset({})
+            Changeset(({}, {}))
             .cast({"name": "Big Blue House"}, ["name"])
             .put_assoc("owner", user)
         )
@@ -85,6 +100,56 @@ def test_validate_change():
     assert changeset.errors == {
         "age": ["not 30"],
     }
+
+
+def test_validate_inclusion_valid():
+    assert (
+        Changeset(Person())
+        .cast(
+            {"name": "Richard", "age": 30, "favorite_animal": "weasel"},
+            ["name", "age", "favorite_animal"],
+        )
+        .validate_inclusion("favorite_animals", ["weasel", "bat"])
+    ).is_valid
+
+
+def test_validate_inclusion_invalid():
+    changeset = (
+        Changeset(Person())
+        .cast(
+            {"name": "Richard", "age": 30, "favorite_animal": "bat"},
+            ["name", "age", "favorite_animal"],
+        )
+        .validate_inclusion("favorite_animal", ["weasel"], "not a weasel")
+    )
+
+    assert changeset.errors == {"favorite_animal": ["not a weasel"]}
+
+
+def test_validate_exclusion_valid():
+    assert (
+        Changeset(Person())
+        .cast(
+            {"name": "Richard", "age": 30, "favorite_animal": "weasel"},
+            ["name", "age", "favorite_animal"],
+        )
+        .validate_exclusion("favorite_animal", ["spider"])
+    ).is_valid
+
+
+def test_validate_exclusion_invalid():
+    changeset = (
+        Changeset(Person())
+        .cast(
+            {"name": "Richard", "age": 30, "favorite_animal": "spider"},
+            ["name", "age", "favorite_animal"],
+        )
+        .validate_exclusion(
+            "favorite_animal", ["spider"], "def not your favorite animal"
+        )
+    )
+
+    assert changeset.errors == {"favorite_animal": ["def not your favorite animal"]}
 
 
 def test_validate_change_only_validates_if_field_is_changed():
@@ -123,8 +188,195 @@ def test_apply_changes_to_model():
     assert changed_user.name == "bar"
 
 
-def test_apply_changes_to_dict_changeset():
-    changeset = Changeset({"name": "foo"}).cast(
-        {"name": "bar", "baz": "qux"}, ["name", "baz"]
+def test_schemaless_invalid():
+    cat = {"name": "Gordon"}
+    types = {"name": str, "age": int, "color": str}
+    permitted = types.keys()
+
+    changeset = Changeset((cat, types)).cast(
+        {"color": "brown", "age": "fourteen"}, permitted
     )
-    assert changeset.apply_changes() == {"name": "bar", "baz": "qux"}
+    assert changeset.errors == {"age": ["Not a valid integer."]}
+
+
+def test_schemaless_valid():
+    cat = {"name": "Gordon"}
+    types = {"name": str, "age": int, "color": str}
+    permitted = types.keys()
+
+    changeset = Changeset((cat, types)).cast({"color": "brown", "age": 14}, permitted)
+    assert changeset.is_valid
+
+
+def test_schemaless_apply_changes():
+    cat = {"name": "Gordon"}
+    types = {"name": str, "age": int, "color": str}
+    permitted = types.keys()
+
+    changeset = Changeset((cat, types)).cast({"color": "brown", "age": 14}, permitted)
+    assert changeset.apply_changes() == {"name": "Gordon", "age": 14, "color": "brown"}
+
+
+def test_on_changed():
+    def _slugify(changeset, title):
+        return changeset.put_change("slug", title.lower().replace(" ", "-"))
+
+    params = {
+        "title": "Crime and Punishment",
+        "publication_date": date(1866, 1, 1),
+    }
+    book = (
+        Changeset(Book())
+        .cast(params, ["title", "publication_date"])
+        .on_changed("title", _slugify)
+        .apply_changes()
+    )
+
+    assert book.slug == "crime-and-punishment"
+
+
+def test_on_changed_with_no_change():
+    def _slugify(changeset, title):
+        return changeset.put_change("slug", title.lower().replace(" ", "-"))
+
+    params = {
+        "publication_date": date(1866, 1, 1),
+    }
+    changeset = (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast(params, ["title", "publication_date"])
+        .on_changed("title", _slugify)
+    )
+    assert changeset.changes.get("slug") is None
+
+
+def test_on_changed_when_changing_value_to_none():
+    params = {
+        "title": None,
+        "publication_date": date(1866, 1, 1),
+    }
+    changeset = (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast(params, ["title", "publication_date"])
+        .on_changed("title", lambda cs, v: cs.put_change("slug", "slug-removed"))
+    )
+    assert changeset.changes.get("slug") == "slug-removed"
+
+
+def test_get_change_from_changes():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"title": "The Brothers Karamazov"}, ["title"])
+        .get_change("title")
+    ) == "The Brothers Karamazov"
+
+
+def test_get_change_not_found():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .get_change("title")
+    ) is None
+
+
+def test_get_change_not_found_with_custom_default():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .get_change("title", "foo")
+    ) == "foo"
+
+
+def test_get_field_from_changes():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"title": "The Brothers Karamazov"}, ["title"])
+        .get_field("title")
+    ) == "The Brothers Karamazov"
+
+
+def test_get_field_from_data():
+    assert (
+        Changeset(Book(title="Crime and Punishment"))
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .get_field("title")
+    ) == "Crime and Punishment"
+
+
+def test_get_field_not_found():
+    assert (
+        Changeset(Book()).cast({"isbn": "1234567890"}, ["isbn"]).get_field("title")
+    ) is None
+
+
+def test_get_field_not_found_custom_default():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "1234567890"}, ["isbn"])
+        .get_field("title", "foo")
+    ) == "foo"
+
+
+def test_put_change():
+    assert (
+        Changeset(Book())
+        .cast({"title": "The Idiot"}, ["title"])
+        .put_change("isbn", "01234567890")
+        .changes["isbn"]
+    ) == "01234567890"
+
+
+def test_validate_length_exact():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "123456789"}, ["isbn"])
+        .validate_length("isbn", 10)
+    ).errors["isbn"] == ["should be 10 characters"]
+
+
+def test_validate_length_minimum():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "123456789"}, ["isbn"])
+        .validate_length("isbn", minimum=10)
+    ).errors["isbn"] == ["should be at least 10 characters"]
+
+
+def test_validate_length_maximum():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "12345678901234"}, ["isbn"])
+        .validate_length("isbn", maximum=13)
+    ).errors["isbn"] == ["should be at most 13 characters"]
+
+
+def test_validate_length_in_between():
+    assert (
+        Changeset(Book())
+        .cast({"isbn": "123456789"}, ["isbn"])
+        .validate_length("isbn", minimum=9, maximum=9)
+    ).is_valid
+
+
+def test_get_change_found():
+    assert (Changeset(Book()).put_change("foo", "bar").get_change("foo")) == "bar"
+
+
+def test_get_change_not_found_default_value():
+    assert (Changeset(Book()).get_change("foo")) is None
+
+
+def test_get_change_not_found_custom_value():
+    assert (Changeset(Book()).get_change("foo", "baz")) == "baz"
+
+
+def test_pipe():
+    def _put_foo(changeset: Changeset) -> Changeset:
+        return changeset.put_change("foo", "bar")
+
+    assert Changeset(Book()).pipe(_put_foo).changes == {"foo": "bar"}
+
+
+def test_invalid_data():
+    with pytest.raises(AttributeError):
+        Changeset("foo")

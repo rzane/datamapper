@@ -12,6 +12,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 import sqlalchemy
@@ -20,38 +21,70 @@ from marshmallow import Schema, ValidationError, fields
 from datamapper.model import Association, BelongsTo, Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
-Data = Union[dict, Model]
 
-T = TypeVar("T", dict, Model)
+Data = TypeVar("Data", Model, dict)
 
 
-class ChangesetDataWrapper(Generic[T]):
-    def __init__(self, data: T):
-        self.data: T = data
+class ChangesetDataWrapper(Generic[Data]):
+    data: Data
 
-    def apply_changes(self, changes: dict) -> T:
-        if isinstance(self.data, dict):
-            return dict_merge(self.data, changes)
-        elif isinstance(self.data, Model):
-            attrs = {**self.data.attributes, **changes}
-            return type(self.data)(**attrs)
+    def get(self, field: str, default: Any = None) -> Optional[Any]:
+        return self.attributes.get(field, default)
+
+    def apply_changes(self, changes: dict) -> Data:
+        raise NotImplementedError()  # pragma: no cover
 
     def field_type(self, field: str) -> Type:
-        if isinstance(self.data, Model):
-            column = self.data.__table__.columns.get(field)
-            return column.type if column is not None else None
-        else:
-            return type(self.data.get(field))
+        raise NotImplementedError()  # pragma: no cover
 
     def association(self, field: str) -> Association:
-        if not isinstance(self.data, Model):
-            raise ValueError("Data of type dict has no associations")
+        raise NotImplementedError()  # pragma: no cover
 
+    @property
+    def attributes(self) -> dict:
+        raise NotImplementedError()  # pragma: no cover
+
+    def __repr__(self) -> str:
+        return self.data.__repr__()  # pragma: no cover
+
+
+class DictChangesetDataWrapper(ChangesetDataWrapper[dict]):
+    def __init__(self, data: Tuple[dict, dict]):
+        self.data: dict = data[0]
+        self._types: dict = data[1]
+
+    def apply_changes(self, changes: dict) -> dict:
+        return dict_merge(self.data, changes)
+
+    def field_type(self, field: str) -> type:
+        return self._types.get(field, type(None))
+
+    def association(self, field: str) -> Association:
+        raise ValueError("Data of type dict has no associations")
+
+    @property
+    def attributes(self) -> dict:
+        return self.data  # pragma: no cover
+
+
+class ModelChangesetDataWrapper(ChangesetDataWrapper[Model]):
+    def __init__(self, data: Model):
+        self.data: Model = data
+
+    def apply_changes(self, changes: dict) -> Model:
+        attrs = {**self.data.attributes, **changes}
+        return type(self.data)(**attrs)
+
+    def field_type(self, field: str) -> Type:
+        column = self.data.__table__.columns.get(field)
+        return column.type if column is not None else None
+
+    def association(self, field: str) -> Association:
         return self.data.association(field)
 
     @property
-    def type(self) -> Type:
-        return type(self.data)  # pragma: no cover
+    def attributes(self) -> dict:
+        return self.data.attributes  # pragma: no cover
 
 
 def dict_merge(dct: dict, merge_dct: dict) -> dict:
@@ -130,7 +163,10 @@ class MarshmallowValidator:
             else fields.Raw
         )
 
-        type_args: Dict[str, Any] = {"required": name in self.changeset.required}
+        type_args: Dict[str, Any] = {
+            "allow_none": True,
+            "required": name in self.changeset.required,
+        }
 
         field_validators = self.changeset._field_validators.get(name)
         if field_validators:
@@ -139,12 +175,12 @@ class MarshmallowValidator:
         return field_type(**type_args)
 
 
-class Changeset(Generic[T]):
+class Changeset(Generic[Data]):
     VALIDATOR_CLASS = MarshmallowValidator
 
-    def __init__(self, data: T) -> None:
-        self._wrapped_data: ChangesetDataWrapper[T] = ChangesetDataWrapper(data)
+    _wrapped_data: ChangesetDataWrapper[Data]
 
+    def __init__(self, data: Union[Data, Tuple[Data, dict]]) -> None:
         self.params: dict = {}
         self.permitted: set = set()
         self.required: set = set()
@@ -153,9 +189,16 @@ class Changeset(Generic[T]):
         self._field_validators: Dict[str, List[FieldValidator]] = {}
         self._schema_validators: List = []
 
+        if isinstance(data, tuple) and isinstance(data[0], dict):
+            self._wrapped_data = DictChangesetDataWrapper(data)
+        elif isinstance(data, Model):
+            self._wrapped_data = ModelChangesetDataWrapper(data)
+        else:
+            raise AttributeError("Changeset data must be a Model or (dict, dict).")
+
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
         """
-        Applies `params` as changes to the changeset, provided that their keys are `permitted`.
+        Applies `params` as changes to the changeset, provided that their keys are in `permitted` and their types are correct.
         """
         permitted_params = {k: v for (k, v) in params.items() if k in permitted}
         return self._update(
@@ -173,6 +216,23 @@ class Changeset(Generic[T]):
         else:
             raise NotImplementedError()
 
+    def has_change(self, field: str) -> bool:
+        return field in self.changes
+
+    def get_change(self, field: str, default: Any = None) -> Optional[Any]:
+        """
+        Gets a change or returns a default value.
+        """
+        return self.changes.get(field, default)
+
+    def get_field(self, field: str, default: Any = None) -> Optional[Any]:
+        """
+        Fetches a field from `changes` if it exists, falling back to `data`.
+        """
+        return self.changes.get(field, default) or self._wrapped_data.get(
+            field, default
+        )
+
     def validate_required(self, fields: List) -> Changeset:
         """
         Validate that `fields` are present in the changeset, either as changes or as data.
@@ -187,8 +247,59 @@ class Changeset(Generic[T]):
 
         Skips the validation if `field` has no changes.
         """
-        existing_validators = self._field_validators.get(field, [])
-        self._field_validators[field] = existing_validators + [validator]
+        self._add_field_validator(field, validator)
+        return self
+
+    def validate_inclusion(
+        self, field: str, vals: Any, msg: str = "is invalid"
+    ) -> Changeset:
+        def _validate_inclusion(value: Any) -> Union[bool, str]:
+            return True if value in vals else msg
+
+        self._add_field_validator(field, _validate_inclusion)
+        return self
+
+    def validate_exclusion(
+        self, field: str, vals: Any, msg: str = "is invalid"
+    ) -> Changeset:
+        def _validate_exclusion(value: Any) -> Union[bool, str]:
+            return True if value not in vals else msg
+
+        self._add_field_validator(field, _validate_exclusion)
+        return self
+
+    def validate_length(
+        self,
+        field: str,
+        length: Optional[int] = None,
+        minimum: Optional[int] = None,
+        maximum: Optional[int] = None,
+        message: Optional[str] = None,
+    ) -> Changeset:
+        if length is not None:
+
+            def _validate_exact_length(val: Any) -> Union[bool, str]:
+                message_ = message or f"should be {length} characters"
+                return True if len(val) == length else message_
+
+            self._add_field_validator(field, _validate_exact_length)
+
+        if minimum is not None:
+
+            def _validate_min_length(val: Any) -> Union[bool, str]:
+                message_ = message or f"should be at least {minimum} characters"
+                return True if len(val) >= cast(int, minimum) else message_
+
+            self._add_field_validator(field, _validate_min_length)
+
+        if maximum is not None:
+
+            def _validate_max_length(val: Any) -> Union[bool, str]:
+                message_ = message or f"should be at most {maximum} characters"
+                return True if len(val) <= cast(int, maximum) else message_
+
+            self._add_field_validator(field, _validate_max_length)
+
         return self
 
     def change(self, changes: dict) -> Changeset:
@@ -198,7 +309,34 @@ class Changeset(Generic[T]):
         self._forced_changes = dict_merge(self._forced_changes, changes)
         return self
 
-    def apply_changes(self) -> T:
+    def put_change(self, field: str, value: Any) -> Changeset:
+        """
+        Puts a change on the given `field` with `value`.
+
+        The value is stored without validation.
+        """
+        self._forced_changes[field] = value
+        return self
+
+    def on_changed(
+        self, field: str, f: Callable[[Changeset, Any], Changeset]
+    ) -> Changeset:
+        """
+        If `field` has been changed, call callback function `f` with the value,
+        returning a new Changeset.
+        """
+        if self.has_change(field):
+            return f(self, self.get_change(field))
+        else:
+            return self
+
+    def pipe(self, f: Callable[[Changeset], Changeset]) -> Changeset:
+        """
+        Pipe the Changeset into the function f, returning a new Changeset.
+        """
+        return f(self)
+
+    def apply_changes(self) -> Data:
         """
         Apply the changeset's changes to the data.
         """
@@ -206,6 +344,10 @@ class Changeset(Generic[T]):
 
     def _field_type(self, field: str) -> Type:
         return self._wrapped_data.field_type(field)
+
+    def _add_field_validator(self, field: str, validator: FieldValidator) -> None:
+        existing_validators = self._field_validators.get(field, [])
+        self._field_validators[field] = existing_validators + [validator]
 
     @property
     def has_error(self) -> bool:
@@ -232,7 +374,15 @@ class Changeset(Generic[T]):
             return result
 
     def __repr__(self) -> str:
-        return f"<Changeset data={self._wrapped_data.type}>"  # pragma: no cover
+        return (
+            f"<Changeset\n"
+            f" is_valid={self.is_valid}\n"
+            f" data={self._wrapped_data}\n"
+            f" params={self.params}\n"
+            f" changes={self.changes}\n"
+            f" errors={self.errors}"
+            ">"
+        )  # pragma: no cover
 
     def _update(self, **kwargs: Any) -> Changeset:
         # Can replace this with an immutable collection library.
@@ -242,5 +392,5 @@ class Changeset(Generic[T]):
         return self
 
     @property
-    def data(self) -> T:
+    def data(self) -> Data:
         return self._wrapped_data.data

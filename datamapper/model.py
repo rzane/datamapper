@@ -97,6 +97,9 @@ class Model:
             f"'{self.__class__.__name__}' object has no attribute '{key}'"
         )
 
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} {self.attributes}>"  # pragma: no cover
+
 
 class Cardinality(enum.Enum):
     ONE = "one"
