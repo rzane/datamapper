@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import text
 
-from datamapper import Query, Changeset
+from datamapper import Changeset, Query
 from datamapper.errors import InvalidChangesetError
 from tests.support import Home, Pet, User
 

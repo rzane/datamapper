@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Union, Callable, Set, TypeVar, Generic, Tuple, TYPE_CHECKING
-
+from typing import TYPE_CHECKING, Callable, Generic, List, Set, Tuple, TypeVar, Union
 
 if TYPE_CHECKING:
     from datamapper.repo import Repo

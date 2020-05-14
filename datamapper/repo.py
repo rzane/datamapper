@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any, List, Optional, Union
 
 from databases import Database
@@ -9,8 +10,8 @@ from datamapper._utils import assert_one, to_list, to_tree
 from datamapper.changeset import Changeset
 from datamapper.errors import InvalidChangesetError
 from datamapper.model import Association, Cardinality, Model
-from datamapper.query import Query
 from datamapper.multi import Multi
+from datamapper.query import Query
 
 
 class Queryable(Protocol):

@@ -1,7 +1,8 @@
 import pytest
-from datamapper import Multi, Changeset
+
+from datamapper import Changeset, Multi
 from datamapper.errors import InvalidChangesetError
-from tests.support import User, Pet
+from tests.support import Pet, User
 
 
 @pytest.mark.asyncio

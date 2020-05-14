@@ -1,7 +1,8 @@
 import pytest
 from databases import Database
+
 from datamapper import Repo
-from tests.support import provision_database, DATABASE_URLS
+from tests.support import DATABASE_URLS, provision_database
 
 
 @pytest.fixture(scope="session", autouse=True)
