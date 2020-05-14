@@ -65,7 +65,7 @@ class Query:
         if self._select is None:
             return self._model._deserialize(dict(row))
         else:
-            values = list(row)
+            values = list(row.values())
             result = _build_result(self._select, values)
             assert len(values) == 0
             return result
