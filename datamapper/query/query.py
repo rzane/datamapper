@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Mapping, Optional, Type, Union, cast
+from typing import Any, Callable, List, Mapping, Optional, Type, Union
 
 from sqlalchemy import Column, Table, text
 from sqlalchemy.sql.expression import ClauseElement, Delete, FromClause, Select, Update
@@ -65,12 +65,7 @@ class Query:
         if self._select is None:
             return self._model._deserialize(dict(row))
         else:
-            # FIXME: This is a workaround for this bug:
-            #   https://github.com/encode/databases/pull/173
-            if hasattr(row, "_row"):
-                row = cast(Any, row)._row
-
-            values = list(row)
+            values = list(row.values())
             result = _build_result(self._select, values)
             assert len(values) == 0
             return result

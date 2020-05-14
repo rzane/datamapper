@@ -51,6 +51,9 @@ class Pet(Model):
 
 
 def provision_database(url: str):
+    """Create a new database. If the database already exists, drop it first."""
+
+    url = url.replace("mysql://", "mysql+pymysql://")
     engine = sa.create_engine(url)
     if database_exists(engine.url):
         drop_database(engine.url)
