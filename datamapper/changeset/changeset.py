@@ -9,170 +9,19 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
-    Type,
-    TypeVar,
     Union,
     cast,
 )
 
-import sqlalchemy
-from marshmallow import Schema, ValidationError, fields
-
-from datamapper.model import Association, BelongsTo, Model
-
-FieldValidator = Callable[[Any], Union[bool, str]]
-
-Data = TypeVar("Data", Model, dict)
-
-
-class ChangesetDataWrapper(Generic[Data]):
-    data: Data
-
-    def get(self, field: str, default: Any = None) -> Optional[Any]:
-        return self.attributes.get(field, default)
-
-    def apply_changes(self, changes: dict) -> Data:
-        raise NotImplementedError()  # pragma: no cover
-
-    def field_type(self, field: str) -> Type:
-        raise NotImplementedError()  # pragma: no cover
-
-    def association(self, field: str) -> Association:
-        raise NotImplementedError()  # pragma: no cover
-
-    @property
-    def attributes(self) -> dict:
-        raise NotImplementedError()  # pragma: no cover
-
-    def __repr__(self) -> str:
-        return self.data.__repr__()  # pragma: no cover
-
-
-class DictChangesetDataWrapper(ChangesetDataWrapper[dict]):
-    def __init__(self, data: Tuple[dict, dict]):
-        self.data: dict = data[0]
-        self._types: dict = data[1]
-
-    def apply_changes(self, changes: dict) -> dict:
-        return dict_merge(self.data, changes)
-
-    def field_type(self, field: str) -> type:
-        return self._types.get(field, type(None))
-
-    def association(self, field: str) -> Association:
-        raise ValueError("Data of type dict has no associations")
-
-    @property
-    def attributes(self) -> dict:
-        return self.data  # pragma: no cover
-
-
-class ModelChangesetDataWrapper(ChangesetDataWrapper[Model]):
-    def __init__(self, data: Model):
-        self.data: Model = data
-
-    def apply_changes(self, changes: dict) -> Model:
-        attrs = {**self.data.attributes, **changes}
-        return type(self.data)(**attrs)
-
-    def field_type(self, field: str) -> Type:
-        column = self.data.__table__.columns.get(field)
-        return column.type if column is not None else None
-
-    def association(self, field: str) -> Association:
-        return self.data.association(field)
-
-    @property
-    def attributes(self) -> dict:
-        return self.data.attributes  # pragma: no cover
-
-
-def dict_merge(dct: dict, merge_dct: dict) -> dict:
-    dct_ = dict(dct)
-    for k, v in merge_dct.items():
-        dct_[k] = merge_dct[k]
-    return dct_
-
-
-class MarshmallowValidator:
-    def __init__(self, changeset: Changeset):
-        self.changeset = changeset
-
-    @classmethod
-    def _to_marshmallow_field_type(cls, type_: Type) -> Type:
-        """
-        Maps types to marshmallow field types.
-        """
-        if isinstance(type_, sqlalchemy.String):
-            return fields.String
-        if isinstance(type_, sqlalchemy.BigInteger):
-            return fields.Integer
-        elif type_ in Schema.TYPE_MAPPING:
-            return Schema.TYPE_MAPPING[type_]
-        else:
-            return fields.Raw
-
-    def validate(self) -> Tuple[bool, dict]:
-        """
-        Programatically build a Marshmallow schema and validate against it.
-
-        Returns (True, changes) | (False, errors)
-        """
-        SchemaType = self._build_schema()
-        errors = SchemaType().validate(self.changeset.params)
-        if errors:
-            return (False, errors)
-
-        changes = SchemaType().dump(self.changeset.params)
-        return (True, changes)
-
-    def _build_schema(self) -> Type[Schema]:
-        """
-        Programatically build a Marshmallow Schema object.
-        """
-        all_fields = set(self.changeset.permitted).union(self.changeset.required)
-        field_definitions: Dict[str, fields.Field] = {
-            field: self._build_field(field) for field in all_fields
-        }
-        return Schema.from_dict(field_definitions)  # type: ignore
-
-    def _build_field(self, name: str) -> fields.Field:
-        """
-        Programatically build a Marshmallow Field object.
-
-        Attempts to map the sqlalchemy column type to the relevant field type.
-        """
-
-        def wrap_validator(validator: FieldValidator) -> Callable:
-            """
-            Turn a generic validation function into a marshmallow-flavored one that
-            raises a ValidationError with the message in question.
-            """
-
-            def _validate(val: Any) -> None:
-                result = validator(val)
-                if isinstance(result, str):
-                    raise ValidationError(result)
-
-            return _validate
-
-        field_type: Optional[Type] = self.changeset._field_type(name)
-        field_type = (
-            self._to_marshmallow_field_type(field_type)
-            if field_type is not None
-            else fields.Raw
-        )
-
-        type_args: Dict[str, Any] = {
-            "allow_none": True,
-            "required": name in self.changeset.required,
-        }
-
-        field_validators = self.changeset._field_validators.get(name)
-        if field_validators:
-            type_args["validate"] = [wrap_validator(v) for v in field_validators]
-
-        return field_type(**type_args)
+from datamapper.changeset.data_wrapper import (
+    ChangesetDataWrapper,
+    DictChangesetDataWrapper,
+    ModelChangesetDataWrapper,
+)
+from datamapper.changeset.types import Data, FieldValidator
+from datamapper.changeset.utils import dict_merge
+from datamapper.changeset.validator import MarshmallowValidator
+from datamapper.model import BelongsTo, Model
 
 
 class Changeset(Generic[Data]):
@@ -342,9 +191,6 @@ class Changeset(Generic[Data]):
         """
         return self._wrapped_data.apply_changes(self.changes)
 
-    def _field_type(self, field: str) -> Type:
-        return self._wrapped_data.field_type(field)
-
     def _add_field_validator(self, field: str, validator: FieldValidator) -> None:
         existing_validators = self._field_validators.get(field, [])
         self._field_validators[field] = existing_validators + [validator]
@@ -359,7 +205,7 @@ class Changeset(Generic[Data]):
 
     @property
     def changes(self) -> dict:
-        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
+        (is_valid, result) = self._validate()
         if is_valid:
             return dict_merge(result, self._forced_changes)
         else:
@@ -367,11 +213,24 @@ class Changeset(Generic[Data]):
 
     @property
     def errors(self) -> dict:
-        (is_valid, result) = self.VALIDATOR_CLASS(self).validate()
+        (is_valid, result) = self._validate()
         if is_valid:
             return {}
         else:
             return result
+
+    @property
+    def data(self) -> Data:
+        return self._wrapped_data.data
+
+    def _validate(self) -> Tuple[bool, dict]:
+        return self.VALIDATOR_CLASS(
+            params=self.params,
+            types=self._wrapped_data.types,
+            permitted=self.permitted,
+            required=self.required,
+            field_validators=self._field_validators,
+        ).validate()
 
     def __repr__(self) -> str:
         return (
@@ -390,7 +249,3 @@ class Changeset(Generic[Data]):
             if hasattr(self, k):
                 setattr(self, k, v)
         return self
-
-    @property
-    def data(self) -> Data:
-        return self._wrapped_data.data
