@@ -21,22 +21,12 @@ from marshmallow import Schema, ValidationError, fields
 from datamapper.model import Association, BelongsTo, Model
 
 FieldValidator = Callable[[Any], Union[bool, str]]
-Data = Union[dict, Model]
 
-T = TypeVar("T", Tuple[dict, dict], Model)
+Data = TypeVar("Data", Model, dict)
 
 
-class ChangesetDataWrapper(Generic[T]):
+class ChangesetDataWrapper(Generic[Data]):
     data: Data
-
-    @staticmethod
-    def instance(data: T) -> ChangesetDataWrapper:
-        if isinstance(data, Model):
-            return ModelChangesetDataWrapper(data)
-        elif isinstance(data, tuple):
-            return DictChangesetDataWrapper(data)
-        else:
-            raise AttributeError("Changeset data must be a Model or (dict, dict).")
 
     def get(self, field: str, default: Any = None) -> Optional[Any]:
         return self.attributes.get(field, default)
@@ -58,7 +48,7 @@ class ChangesetDataWrapper(Generic[T]):
         return self.data.__repr__()  # pragma: no cover
 
 
-class DictChangesetDataWrapper(ChangesetDataWrapper[Tuple[dict, dict]]):
+class DictChangesetDataWrapper(ChangesetDataWrapper[dict]):
     def __init__(self, data: Tuple[dict, dict]):
         self.data: dict = data[0]
         self._types: dict = data[1]
@@ -185,14 +175,12 @@ class MarshmallowValidator:
         return field_type(**type_args)
 
 
-class Changeset(Generic[T]):
+class Changeset(Generic[Data]):
     VALIDATOR_CLASS = MarshmallowValidator
 
-    def __init__(self, data: T) -> None:
-        self._wrapped_data: ChangesetDataWrapper[T] = ChangesetDataWrapper.instance(
-            data
-        )
+    _wrapped_data: ChangesetDataWrapper[Data]
 
+    def __init__(self, data: Union[Data, Tuple[Data, dict]]) -> None:
         self.params: dict = {}
         self.permitted: set = set()
         self.required: set = set()
@@ -200,6 +188,13 @@ class Changeset(Generic[T]):
         self._forced_changes: dict = {}
         self._field_validators: Dict[str, List[FieldValidator]] = {}
         self._schema_validators: List = []
+
+        if isinstance(data, tuple) and isinstance(data[0], dict):
+            self._wrapped_data = DictChangesetDataWrapper(data)
+        elif isinstance(data, Model):
+            self._wrapped_data = ModelChangesetDataWrapper(data)
+        else:
+            raise AttributeError("Changeset data must be a Model or (dict, dict).")
 
     def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
         """
