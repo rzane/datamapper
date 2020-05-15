@@ -49,7 +49,6 @@ class Changeset(Generic[Data]):
         """
         Applies `params` as changes to the changeset, provided that their keys are in `permitted` and their types are correct.
         """
-
         self.empty_values = set(empty_values)
         self.params = {
             k: v for (k, v) in params.items() if self._keep_param(k, v, set(permitted))
