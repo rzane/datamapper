@@ -53,6 +53,9 @@ class Changeset(Generic[Data]):
             raise NotImplementedError()
 
     def has_change(self, field: str) -> bool:
+        """
+        Returns `True` if the field is present in the changes.
+        """
         return field in self.changes
 
     def get_change(self, field: str, default: Any = None) -> Optional[Any]:
@@ -69,15 +72,21 @@ class Changeset(Generic[Data]):
             field, default
         )
 
+    def has_field(self, field: str) -> bool:
+        """
+        Returns `True` if the field is present in the changes or data.
+        """
+        return field in self.changes or field in self._wrapped_data.attributes
+
     def validate_required(
         self, fields: List, message: str = "Missing data for required field."
     ) -> Changeset:
         """
         Validate that `fields` are present in the changeset, either as changes or as data.
         """
-        for f in fields:
-            if f not in self.changes and f not in self._wrapped_data.attributes:
-                self.add_error(f, message)
+        for field in fields:
+            if not self.has_field(field):
+                self.add_error(field, message)
 
         return self
 
