@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, List, Mapping, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from datamapper.changeset import validators
 from datamapper.changeset.data_wrapper import (
@@ -20,6 +31,7 @@ class Changeset(Generic[Data]):
         self.params: dict = {}
         self.changes: dict = {}
         self.errors: dict = {}
+        self.empty_values: Set[Any] = set()
 
         if isinstance(data, tuple) and isinstance(data[0], dict):
             self._wrapped_data = DictChangesetDataWrapper(data)
@@ -28,11 +40,20 @@ class Changeset(Generic[Data]):
         else:
             raise AttributeError("Changeset data must be a Model or (dict, dict).")
 
-    def cast(self, params: Mapping[str, Any], permitted: List[str]) -> Changeset:
+    def cast(
+        self,
+        params: Mapping[str, Any],
+        permitted: Iterable[str],
+        empty_values: Iterable[Any] = ("",),
+    ) -> Changeset:
         """
         Applies `params` as changes to the changeset, provided that their keys are in `permitted` and their types are correct.
         """
-        self.params = {k: v for (k, v) in params.items() if k in permitted}
+
+        self.empty_values = set(empty_values)
+        self.params = {
+            k: v for (k, v) in params.items() if self._keep_param(k, v, set(permitted))
+        }
         (changes, errors) = validators.validate_types(
             params=self.params,
             types=self._wrapped_data.types,
@@ -41,6 +62,13 @@ class Changeset(Generic[Data]):
         self.changes = changes
         self.errors = errors
         return self
+
+    def _keep_param(self, key: str, value: Any, permitted: Iterable[str]) -> bool:
+        return (
+            key in permitted
+            and value != self._wrapped_data.get(key)
+            and value not in self.empty_values
+        )
 
     def put_assoc(self, name: str, value: Any) -> Changeset:
         """

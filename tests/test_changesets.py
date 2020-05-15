@@ -60,21 +60,24 @@ def test_cast_unknown_type():
     assert changeset.changes == {}
 
 
+def test_cast_param_same_as_data():
+    assert (
+        Changeset(Book(title="Great Expectations")).cast(
+            {"title": "Great Expectations"}, ["title"]
+        )
+    ).changes == {}
+
+
 @pytest.mark.parametrize(
     "key,val,valid,error",
     [
         ("title", "War and Peace", True, None),
         ("title", 1, False, "Not a valid string."),
-        ("title", None, True, None),
-        ("pages", 1, True, None),
         ("pages", "six", False, "Not a valid integer."),
-        ("pages", None, True, None),
         ("publication_date", date(1869, 1, 1), True, None),
         ("publication_date", "not a date", False, "Not a valid date."),
-        ("publication_date", None, True, None),
         ("updated_at", datetime(2020, 5, 14, 21, 0), True, None),
         ("updated_at", "not a datetime", False, "Not a valid datetime."),
-        ("updated_at", None, True, None),
     ],
 )
 def test_cast_type_check(key, val, valid, error):
@@ -84,6 +87,25 @@ def test_cast_type_check(key, val, valid, error):
         assert changeset.changes[key] == val
     else:
         assert changeset.errors[key] == [error]
+
+
+def test_cast_default_empty_values():
+    params = {"title": "", "slug": "not-empty", "pages": None}
+    assert (Changeset(Book()).cast(params, ["title", "slug", "pages"])).changes == {
+        "slug": "not-empty",
+    }
+
+
+def test_cast_custom_empty_values():
+    empty_value = "this is actually empty"
+    not_empty_value = ""
+    assert (
+        Changeset(Book()).cast(
+            {"title": empty_value, "slug": not_empty_value},
+            ["title", "slug"],
+            empty_values=[empty_value],
+        )
+    ).changes == {"slug": not_empty_value}
 
 
 def test_put_assoc():
