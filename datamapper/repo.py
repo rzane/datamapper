@@ -229,7 +229,8 @@ class Repo:
 def cast_changeset(model_or_changeset: Union[Model, Changeset]) -> Changeset:
     if isinstance(model_or_changeset, Model):
         changes = model_or_changeset.attributes
-        return Changeset(model_or_changeset).cast(changes, list(changes.keys()))
+        empty_model = type(model_or_changeset)()
+        return Changeset(empty_model).cast(changes, list(changes.keys()))
     elif isinstance(model_or_changeset, Changeset):
         return model_or_changeset
     else:

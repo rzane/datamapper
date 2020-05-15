@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 import sqlalchemy as sa
@@ -38,6 +38,8 @@ class Book(Model):
         sa.Column("isbn", sa.String(255)),
         sa.Column("publication_date", sa.Date()),
         sa.Column("slug", sa.String(255)),
+        sa.Column("pages", sa.Integer()),
+        sa.Column("updated_at", sa.DateTime()),
     )
 
 
@@ -53,9 +55,57 @@ def test_cast():
     assert changeset.changes == {"name": "Richard"}
 
 
-def test_cast_type_check():
-    changeset = Changeset(User()).cast({"name": 1}, ["name"])
-    assert changeset.errors == {"name": ["Not a valid string."]}
+def test_cast_unknown_type():
+    changeset = Changeset(User()).cast({"unknown": 1}, ["unknown"])
+    assert changeset.changes == {}
+
+
+def test_cast_param_same_as_data():
+    assert (
+        Changeset(Book(title="Great Expectations")).cast(
+            {"title": "Great Expectations"}, ["title"]
+        )
+    ).changes == {}
+
+
+@pytest.mark.parametrize(
+    "key,val,valid,error",
+    [
+        ("title", "War and Peace", True, None),
+        ("title", 1, False, "Not a valid string."),
+        ("pages", "six", False, "Not a valid integer."),
+        ("publication_date", date(1869, 1, 1), True, None),
+        ("publication_date", "not a date", False, "Not a valid date."),
+        ("updated_at", datetime(2020, 5, 14, 21, 0), True, None),
+        ("updated_at", "not a datetime", False, "Not a valid datetime."),
+    ],
+)
+def test_cast_type_check(key, val, valid, error):
+    changeset = Changeset(Book()).cast({key: val}, [key])
+    if valid:
+        assert changeset.is_valid
+        assert changeset.changes[key] == val
+    else:
+        assert changeset.errors[key] == [error]
+
+
+def test_cast_default_empty_values():
+    params = {"title": "", "slug": "not-empty", "pages": None}
+    assert (Changeset(Book()).cast(params, ["title", "slug", "pages"])).changes == {
+        "slug": "not-empty",
+    }
+
+
+def test_cast_custom_empty_values():
+    empty_value = "this is actually empty"
+    not_empty_value = ""
+    assert (
+        Changeset(Book()).cast(
+            {"title": empty_value, "slug": not_empty_value},
+            ["title", "slug"],
+            empty_values=[empty_value],
+        )
+    ).changes == {"slug": not_empty_value}
 
 
 def test_put_assoc():
@@ -355,6 +405,12 @@ def test_validate_length_in_between():
         Changeset(Book())
         .cast({"isbn": "123456789"}, ["isbn"])
         .validate_length("isbn", minimum=9, maximum=9)
+    ).is_valid
+
+
+def test_validate_length_no_params():
+    assert (
+        Changeset(Book()).cast({"isbn": "123456789"}, ["isbn"]).validate_length("isbn")
     ).is_valid
 
 

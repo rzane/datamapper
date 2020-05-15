@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Generic, Optional, Tuple, Type
 
+from sqlalchemy.types import TypeEngine
+
 from datamapper.changeset.types import Data
 from datamapper.changeset.utils import dict_merge
 from datamapper.model import Association, Model
@@ -68,4 +70,9 @@ class ModelChangesetDataWrapper(ChangesetDataWrapper[Model]):
 
     @property
     def types(self) -> dict:
-        return {k: v.type for (k, v) in self.data.__table__.columns.items()}
+        columns: dict = self.data.__table__.columns
+        return {k: self._to_python_type(v.type) for (k, v) in columns.items()}
+
+    @classmethod
+    def _to_python_type(cls, type_: TypeEngine) -> Type:
+        return type_.python_type
