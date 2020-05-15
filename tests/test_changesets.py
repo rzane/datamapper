@@ -386,6 +386,12 @@ def test_validate_length_in_between():
     ).is_valid
 
 
+def test_validate_length_no_params():
+    assert (
+        Changeset(Book()).cast({"isbn": "123456789"}, ["isbn"]).validate_length("isbn")
+    ).is_valid
+
+
 def test_get_change_found():
     assert (Changeset(Book()).put_change("foo", "bar").get_change("foo")) == "bar"
 
