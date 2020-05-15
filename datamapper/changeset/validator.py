@@ -1,100 +1,123 @@
-from __future__ import annotations
-
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type
-
-import sqlalchemy
-from marshmallow import Schema, ValidationError, fields
 
 from datamapper.changeset.types import FieldValidator
 
+TypeValidator = Callable[[Any], bool]
+Errors = Dict[str, List[str]]
 
-class MarshmallowValidator:
+
+def human_type_name(type_name: str) -> str:
+    return {"int": "integer", "str": "string"}.get(type_name, type_name)
+
+
+class Validator:
+    def validate(self) -> Tuple[bool, dict]:
+        raise NotImplementedError()  # pragma: no cover
+
+
+class BasicValidator(Validator):
+    # TODO: Could take this approach instead of using sqlalchemy's .python_type
+    # TYPE_VALIDATORS: List[Tuple[Set[Type], str, TypeValidator]] = [
+    #     (
+    #         {sa.String, sa.VARCHAR, str},
+    #         "Not a valid string.",
+    #         lambda v: isinstance(v, str),
+    #     ),
+    #     (
+    #         {sa.Integer, sa.BigInteger, int},
+    #         "Not a valid integer.",
+    #         lambda v: isinstance(v, int),
+    #     ),
+    #     ({sa.Date, date}, "Not a valid date.", lambda v: isinstance(v, date)),
+    # ]
+
     def __init__(
         self,
         params: Dict[str, Any],
         types: Dict[str, Any],
+        data: Dict[str, Any],
         permitted: Set[str],
         required: Set[str],
         field_validators: Dict[str, List[FieldValidator]],
     ):
         self.params = params
         self.types = types
+        self.data = data
         self.permitted = permitted
         self.required = required
         self.field_validators = field_validators
 
-    @classmethod
-    def _to_marshmallow_field_type(cls, type_: Type) -> Type:
-        """
-        Maps types to marshmallow field types.
-        """
-        if isinstance(type_, sqlalchemy.String):
-            return fields.String
-        if isinstance(type_, sqlalchemy.BigInteger):
-            return fields.Integer
-        elif type_ in Schema.TYPE_MAPPING:
-            return Schema.TYPE_MAPPING[type_]
-        else:
-            return fields.Raw
-
     def validate(self) -> Tuple[bool, dict]:
-        """
-        Programatically build a Marshmallow schema and validate against it.
+        (changes, errors) = self._validate_types(self.params, {})
+        (changes, errors) = self._validate_required(changes, errors)
+        (changes, errors) = self._validate_fields(changes, errors)
 
-        Returns (True, changes) | (False, errors)
-        """
-        SchemaType = self._build_schema()
-        errors = SchemaType().validate(self.params)
-        if errors:
-            return (False, errors)
+        valid = len(errors) == 0
+        return (valid, changes) if valid else (valid, errors)
 
-        changes = SchemaType().dump(self.params)
-        return (True, changes)
+    def _add_error(self, errors: Errors, key: str, msg: str) -> Errors:
+        errors_ = dict(errors)
+        existing_errors = errors.get(key, [])
+        errors_[key] = [*existing_errors, msg]
+        return errors_
 
-    def _build_schema(self) -> Type[Schema]:
-        """
-        Programatically build a Marshmallow Schema object.
-        """
-        all_fields = set(self.permitted).union(self.required)
-        field_definitions: Dict[str, fields.Field] = {
-            field: self._build_field(field) for field in all_fields
-        }
-        return Schema.from_dict(field_definitions)  # type: ignore
+    def _validate_required(self, changes: dict, errors: dict) -> Tuple[dict, dict]:
+        errors_ = dict(errors)
 
-    def _build_field(self, name: str) -> fields.Field:
-        """
-        Programatically build a Marshmallow Field object.
+        for key in self.required:
+            if key not in changes and key not in self.data:
+                errors_ = self._add_error(
+                    errors_, key, "Missing data for required field."
+                )
 
-        Attempts to map the sqlalchemy column type to the relevant field type.
-        """
+        return (changes, errors_)
 
-        def wrap_validator(validator: FieldValidator) -> Callable:
-            """
-            Turn a generic validation function into a marshmallow-flavored one that
-            raises a ValidationError with the message in question.
-            """
+    def _validate_types(self, params: dict, errors: dict) -> Tuple[dict, dict]:
+        errors_ = dict(errors)
+        changes = dict(params)
 
-            def _validate(val: Any) -> None:
-                result = validator(val)
-                if isinstance(result, str):
-                    raise ValidationError(result)
+        for (key, val) in self.params.items():
+            schema_type = self.types.get(key)
+            if schema_type is None:
+                changes.pop(key)
+                continue
 
-            return _validate
+            error = self._validate_type(schema_type, val)
+            if error is not None:
+                errors_ = self._add_error(errors_, key, error)
 
-        field_type: Optional[Type] = self.types.get(name)
-        field_type = (
-            self._to_marshmallow_field_type(field_type)
-            if field_type is not None
-            else fields.Raw
-        )
+        return (changes, errors_)
 
-        type_args: Dict[str, Any] = {
-            "allow_none": True,
-            "required": name in self.required,
-        }
+    def _validate_type(self, schema_type: Type, val: Any) -> Optional[str]:
+        if val is None:
+            return None
 
-        field_validators = self.field_validators.get(name)
-        if field_validators:
-            type_args["validate"] = [wrap_validator(v) for v in field_validators]
+        (error_msg, type_validator) = self._get_type_validator(schema_type)
+        return error_msg if not type_validator(val) else None
 
-        return field_type(**type_args)
+    def _get_type_validator(self, schema_type: Type) -> Tuple[str, TypeValidator]:
+        python_type = self._to_python_type(schema_type)
+        error_msg = f"Not a valid {human_type_name(python_type.__name__)}."
+
+        def _validator(v: Any) -> bool:
+            return isinstance(v, python_type)
+
+        return (error_msg, _validator)
+
+    def _validate_fields(self, changes: dict, errors: dict) -> Tuple[dict, dict]:
+        errors_ = dict(errors)
+        for (key, val) in changes.items():
+            field_validators = self.field_validators.get(key, [])
+            for field_validator in field_validators:
+                success_or_err_msg = field_validator(val)
+                if isinstance(success_or_err_msg, str):
+                    errors_ = self._add_error(errors_, key, success_or_err_msg)
+
+        return (changes, errors_)
+
+    def _to_python_type(self, type_: Any) -> Type:
+        try:
+            # For sqlalchemy types
+            return type_.python_type
+        except AttributeError:
+            return type_

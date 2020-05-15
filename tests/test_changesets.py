@@ -38,6 +38,7 @@ class Book(Model):
         sa.Column("isbn", sa.String(255)),
         sa.Column("publication_date", sa.Date()),
         sa.Column("slug", sa.String(255)),
+        sa.Column("pages", sa.Integer()),
     )
 
 
@@ -56,6 +57,45 @@ def test_cast():
 def test_cast_type_check():
     changeset = Changeset(User()).cast({"name": 1}, ["name"])
     assert changeset.errors == {"name": ["Not a valid string."]}
+
+
+def test_cast_unknown_type():
+    changeset = Changeset(User()).cast({"unknown": 1}, ["unknown"])
+    assert changeset.changes == {}
+
+
+@pytest.mark.parametrize(
+    "key,val,valid,error",
+    [
+        ("title", "War and Peace", True, None),
+        ("title", 1, False, "Not a valid string."),
+        ("title", None, True, None),
+        ("pages", 1, True, None),
+        ("pages", "six", False, "Not a valid integer."),
+        ("title", None, True, None),
+        # ("publication_date", date(1990, 1, 1), True),
+        # ("publication_date", "not a date", False),
+    ],
+)
+def test_types(key, val, valid, error):
+    changeset = Changeset(Book()).cast({key: val}, [key])
+    if valid:
+        assert changeset.is_valid
+        assert changeset.changes[key] == val
+    else:
+        assert changeset.errors[key] == [error]
+
+
+# def test_cast_type_check_date_valid():
+#     params = {"publication_date": date(1990, 1, 1)}
+#     permitted = params.keys()
+#     assert Changeset(User()).cast(params, permitted).is_valid
+
+
+# def test_cast_type_check_date_invalid():
+#     params = {"publication_date": "not a date"}
+#     permitted = params.keys()
+#     assert Changeset(User()).cast(params, permitted).errors == {"publication_date": ["Not a valid date"]}
 
 
 def test_put_assoc():

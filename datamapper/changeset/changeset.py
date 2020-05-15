@@ -13,6 +13,7 @@ from typing import (
     cast,
 )
 
+from datamapper.changeset import validator
 from datamapper.changeset.data_wrapper import (
     ChangesetDataWrapper,
     DictChangesetDataWrapper,
@@ -20,12 +21,11 @@ from datamapper.changeset.data_wrapper import (
 )
 from datamapper.changeset.types import Data, FieldValidator
 from datamapper.changeset.utils import dict_merge
-from datamapper.changeset.validator import MarshmallowValidator
 from datamapper.model import BelongsTo, Model
 
 
 class Changeset(Generic[Data]):
-    VALIDATOR_CLASS = MarshmallowValidator
+    VALIDATOR_CLASS = validator.BasicValidator
 
     _wrapped_data: ChangesetDataWrapper[Data]
 
@@ -227,6 +227,7 @@ class Changeset(Generic[Data]):
         return self.VALIDATOR_CLASS(
             params=self.params,
             types=self._wrapped_data.types,
+            data=self._wrapped_data.attributes,
             permitted=self.permitted,
             required=self.required,
             field_validators=self._field_validators,
