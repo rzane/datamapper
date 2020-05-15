@@ -44,21 +44,12 @@ def _validate_type(schema_type: Type, val: Any) -> Optional[str]:
 
 
 def _get_type_validator(schema_type: Type) -> Tuple[str, TypeValidator]:
-    python_type = _to_python_type(schema_type)
-    error_msg = f"Not a valid {human_type_name(python_type.__name__)}."
+    error_msg = f"Not a valid {human_type_name(schema_type.__name__)}."
 
     def _validator(v: Any) -> bool:
-        return isinstance(v, python_type)
+        return isinstance(v, schema_type)
 
     return (error_msg, _validator)
-
-
-def _to_python_type(type_: Any) -> Type:
-    try:
-        # For sqlalchemy types. Converts to its corresponding python type.
-        return type_.python_type
-    except AttributeError:
-        return type_
 
 
 def validate_exact_length(length: int, message: Optional[str] = None) -> FieldValidator:
