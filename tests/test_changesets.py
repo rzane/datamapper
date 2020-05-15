@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 import sqlalchemy as sa
@@ -39,6 +39,7 @@ class Book(Model):
         sa.Column("publication_date", sa.Date()),
         sa.Column("slug", sa.String(255)),
         sa.Column("pages", sa.Integer()),
+        sa.Column("updated_at", sa.DateTime()),
     )
 
 
@@ -54,11 +55,6 @@ def test_cast():
     assert changeset.changes == {"name": "Richard"}
 
 
-def test_cast_type_check():
-    changeset = Changeset(User()).cast({"name": 1}, ["name"])
-    assert changeset.errors == {"name": ["Not a valid string."]}
-
-
 def test_cast_unknown_type():
     changeset = Changeset(User()).cast({"unknown": 1}, ["unknown"])
     assert changeset.changes == {}
@@ -72,30 +68,22 @@ def test_cast_unknown_type():
         ("title", None, True, None),
         ("pages", 1, True, None),
         ("pages", "six", False, "Not a valid integer."),
-        ("title", None, True, None),
-        # ("publication_date", date(1990, 1, 1), True),
-        # ("publication_date", "not a date", False),
+        ("pages", None, True, None),
+        ("publication_date", date(1869, 1, 1), True, None),
+        ("publication_date", "not a date", False, "Not a valid date."),
+        ("publication_date", None, True, None),
+        ("updated_at", datetime(2020, 5, 14, 21, 0), True, None),
+        ("updated_at", "not a datetime", False, "Not a valid datetime."),
+        ("updated_at", None, True, None),
     ],
 )
-def test_types(key, val, valid, error):
+def test_cast_type_check(key, val, valid, error):
     changeset = Changeset(Book()).cast({key: val}, [key])
     if valid:
         assert changeset.is_valid
         assert changeset.changes[key] == val
     else:
         assert changeset.errors[key] == [error]
-
-
-# def test_cast_type_check_date_valid():
-#     params = {"publication_date": date(1990, 1, 1)}
-#     permitted = params.keys()
-#     assert Changeset(User()).cast(params, permitted).is_valid
-
-
-# def test_cast_type_check_date_invalid():
-#     params = {"publication_date": "not a date"}
-#     permitted = params.keys()
-#     assert Changeset(User()).cast(params, permitted).errors == {"publication_date": ["Not a valid date"]}
 
 
 def test_put_assoc():
